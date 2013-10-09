@@ -9,12 +9,13 @@
 #include <cerrno>
 #include <iostream>
 
-Server::Server() : 
+Server::Server(const char *path) : 
 	m_sockfd(-1)
 {	
+	m_path = path;
 	struct stat st = {};
-	if(stat("mailpool", &st) == -1) {
-		mkdir("mailpool", 0700);
+	if(stat(m_path, &st) == -1) {
+		mkdir(m_path, 0700);
 	}
 }
 
@@ -99,29 +100,32 @@ void Server::ChildProcess(int childfd)
 	 * TODO:
 	 * Buffergröße absichern
 	 */
-	const char * msg = "Optionen:\nSEND\nLIST\nREAD\nDELETE\nQUIT\n";
+	const char * msg = "OK\n";
 	const char * err = "ERR\n";
 
 	if(send(childfd, msg,strlen(msg), 0) == -1) {
 		return;
 	}
-	if((bytesReceived = recv(childfd,m_buffer ,sizeof(m_buffer), 0)) == -1) {
+	if((bytesReceived = recv(childfd,m_buffer ,BUFFERSIZE, 0)) == -1) {
 		send(childfd, err, strlen(err), 0);
 		return;
 	}
 	m_buffer[bytesReceived] = '\0';
 
-	readHeader();
+	std::cout << m_buffer << std::endl;
+	splitMessage();
 	std::cout << m_header.type << std::endl;
-	if(!strncmp("SEND", m_buffer, 4)){
+	std::cout << m_header.sender << std::endl;
+
+	if(!strncmp("SEND", m_header.type, 4)){
 		OnRecvSEND();
-	} else if(!strncmp("READ", m_buffer, 4)) {
+	} else if(!strncmp("READ", m_header.type, 4)) {
 		OnRecvREAD();
-	} else if(!strncmp("LIST", m_buffer, 4)) {
+	} else if(!strncmp("LIST", m_header.type, 4)) {
 		OnRecvLIST();
-	} else if(!strncmp("QUIT", m_buffer, 4)) {
+	} else if(!strncmp("QUIT", m_header.type, 4)) {
 		OnRecvQUIT();
-	} else if(!strncmp("DEL", m_buffer, 3)) {
+	} else if(!strncmp("DEL", m_header.type, 4)) {
 		OnRecvDEL();
 	} else {
 		send(childfd, err, strlen(err), 0);
@@ -131,7 +135,19 @@ void Server::ChildProcess(int childfd)
 
 int Server::OnRecvSEND()
 {
-	return 0;	
+	char * dir = new char[PATHLENGTH];
+	strcpy(dir, realpath(m_path, NULL));
+	strcat(dir, "/");
+	strcat(dir, m_header.sender);
+
+	struct stat st = {};
+	if(stat(dir, &st) == -1) {
+		mkdir(dir, 0700);
+	}
+	
+	
+	
+	return 0;
 }
 
 int Server::OnRecvDEL()
@@ -151,17 +167,21 @@ int Server::OnRecvQUIT()
 	return 0;	
 }
 
-int Server::readHeader()
+int Server::splitMessage()
 {
-	char * token;
-	for(int i = 0; i <= 4; i++) {
-		token = strtok(m_buffer, "\n");
+	int i;
+	char * token, *save, *str;
+	for(i = 1, str = m_buffer;i <= 4; i++, str = NULL) {
+		token = strtok_r(str, "\n", &save);
+		std::cout << token << std::endl;
 		if(token == NULL) {
 			break;
 		}
+
 		switch(i) {
 		case 1:
 			m_header.type = token;
+			break;
 		case 2:
 			m_header.sender = token;
 			break;
@@ -171,6 +191,8 @@ int Server::readHeader()
 		case 4:
 			m_header.subject = token;
 			break;
+		default:
+			strcat(m_message, token);
 		}
 			
 	}		

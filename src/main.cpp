@@ -11,18 +11,23 @@ void signalHandler(int s)
 
 int main(int argc, char *argv[])
 {
-	Server serv; 
+	Server serv = Server(argv[1]); 
 	struct sigaction sa;
+	if(argc < 3) {
+		std::cout << "No Server Path and/or Portnumber given!" << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	std::cout << "Starting Server" << std::endl;
 	try
 	{
-		serv.Connect(NULL, "3490");
+		serv.Connect(NULL, argv[2]);
 	} catch(const char *ex)
 	{
 		std::cerr << ex << std::endl;
 		return EXIT_FAILURE;
 	}
+
 	sa.sa_handler = signalHandler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
@@ -30,6 +35,7 @@ int main(int argc, char *argv[])
 		std::cerr << "sigaction" << std::endl;
 		exit(1);
 	}
+
 	std::cout << "Listening..." << std::endl;
 	serv.Start();
 	return EXIT_SUCCESS;
