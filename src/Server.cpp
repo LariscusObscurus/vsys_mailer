@@ -8,15 +8,13 @@
 #include <cstring>
 #include <cerrno>
 #include <iostream>
+#include <fstream>
+
 
 Server::Server(const char *path) : 
-	m_sockfd(-1)
+	m_sockfd(-1),
+	m_path(path)
 {	
-	m_path = path;
-	struct stat st = {};
-	if(stat(m_path, &st) == -1) {
-		mkdir(m_path, 0700);
-	}
 }
 
 Server::~Server()
@@ -32,6 +30,8 @@ int Server::Connect (const char *node, const char *port)
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
+
+	createDirectory(m_path.c_str());
 
 	if((rv = getaddrinfo(node, port, &hints, &servinfo) != 0)) {
 		throw gai_strerror(rv);
@@ -81,7 +81,6 @@ int Server::Start()
 		}
 		if(!fork()) {
 			ChildProcess(childfd);
-			delete[] m_buffer;
 			close(childfd);
 			exit(0);
 		}
@@ -94,107 +93,113 @@ void Server::ChildProcess(int childfd)
 {
 	close(m_sockfd);
 	long bytesReceived;
+	char *buf = new char[BUFFERSIZE];
 
-	m_buffer = new char[BUFFERSIZE];
 	/**
 	 * TODO:
 	 * Buffergröße absichern
 	 */
 	const char * msg = "OK\n";
-	const char * err = "ERR\n";
 
 	if(send(childfd, msg,strlen(msg), 0) == -1) {
+		delete[] buf;
 		return;
 	}
-	if((bytesReceived = recv(childfd,m_buffer ,BUFFERSIZE, 0)) == -1) {
-		send(childfd, err, strlen(err), 0);
+	if((bytesReceived = recv(childfd,buf ,BUFFERSIZE, 0)) == -1) {
+		delete[] buf;
+		sendERR(childfd);
 		return;
 	}
-	m_buffer[bytesReceived] = '\0';
+	buf[bytesReceived] = '\0';
+	/**
+	 * FIXME:
+	 * Message größer als BUFFERSIZE wird abgeschnitten
+	 */
+	std::cout << buf << std::endl;
+	m_buffer = std::string(buf);
 
-	std::cout << m_buffer << std::endl;
-	splitMessage();
-	std::cout << m_header.type << std::endl;
-	std::cout << m_header.sender << std::endl;
-
-	if(!strncmp("SEND", m_header.type, 4)){
-		OnRecvSEND();
-	} else if(!strncmp("READ", m_header.type, 4)) {
-		OnRecvREAD();
-	} else if(!strncmp("LIST", m_header.type, 4)) {
-		OnRecvLIST();
-	} else if(!strncmp("QUIT", m_header.type, 4)) {
-		OnRecvQUIT();
-	} else if(!strncmp("DEL", m_header.type, 4)) {
-		OnRecvDEL();
-	} else {
-		send(childfd, err, strlen(err), 0);
+	try {
+		if(!strncmp("SEND", buf, 4)){
+			OnRecvSEND();
+		} else if(!strncmp("READ", buf, 4)) {
+			OnRecvREAD();
+		} else if(!strncmp("LIST", buf, 4)) {
+			OnRecvLIST();
+		} else if(!strncmp("QUIT", buf, 4)) {
+			OnRecvQUIT();
+		} else if(!strncmp("DEL", buf, 4)) {
+			OnRecvDEL();
+		} else {
+			sendERR(childfd);
+		}
+	} catch(char* ex) {
+		sendERR(childfd);
 	}
+	delete[] buf;
 	close(childfd);
 }
 
-int Server::OnRecvSEND()
+void Server::OnRecvSEND()
 {
-	char * dir = new char[PATHLENGTH];
-	strcpy(dir, realpath(m_path, NULL));
-	strcat(dir, "/");
-	strcat(dir, m_header.sender);
+	std::string delim ("\n");
 
+	std::vector<std::string> lines;
+
+	split(m_buffer, delim, lines);
+	
+	/**
+	 * USER directory erstellen
+	 */
+	std::string dir(realpath(m_path.c_str(), NULL));
+	dir.append("/");
+	dir.append(lines[1]);
+	createDirectory(dir.c_str());
+	
+	return;
+}
+
+void Server::OnRecvDEL()
+{
+	return;	
+}
+void Server::OnRecvREAD()
+{
+	return;	
+}
+void Server::OnRecvLIST()
+{
+	return;	
+}
+void Server::OnRecvQUIT()
+{
+	return;	
+}
+
+void Server::sendERR(int childfd)
+{
+	const char * err = "ERR\n";
+
+	send(childfd, err, strlen(err), 0);
+	return;
+	
+}
+void Server::createDirectory(const char * dir)
+{
 	struct stat st = {};
 	if(stat(dir, &st) == -1) {
 		mkdir(dir, 0700);
 	}
-	
-	
-	
-	return 0;
+
 }
 
-int Server::OnRecvDEL()
+void Server::split(const std::string& str, const std::string& delim, std::vector<std::string>& tokens)
 {
-	return 0;	
-}
-int Server::OnRecvREAD()
-{
-	return 0;	
-}
-int Server::OnRecvLIST()
-{
-	return 0;	
-}
-int Server::OnRecvQUIT()
-{
-	return 0;	
-}
+	std::string::size_type lastPos = str.find_first_not_of(delim,0);
+	std::string::size_type pos = str.find_first_of(delim, lastPos);
 
-int Server::splitMessage()
-{
-	int i;
-	char * token, *save, *str;
-	for(i = 1, str = m_buffer;i <= 4; i++, str = NULL) {
-		token = strtok_r(str, "\n", &save);
-		std::cout << token << std::endl;
-		if(token == NULL) {
-			break;
-		}
-
-		switch(i) {
-		case 1:
-			m_header.type = token;
-			break;
-		case 2:
-			m_header.sender = token;
-			break;
-		case 3:
-			m_header.recipent = token;
-			break;
-		case 4:
-			m_header.subject = token;
-			break;
-		default:
-			strcat(m_message, token);
-		}
-			
-	}		
-	return 0;
+	while(std::string::npos != pos || std::string::npos != lastPos) {
+		tokens.push_back(str.substr(lastPos, pos - lastPos));
+		lastPos = str.find_first_not_of(delim, pos);
+		pos = str.find_first_of(delim, lastPos);
+	}
 }

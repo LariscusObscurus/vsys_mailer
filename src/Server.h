@@ -6,19 +6,15 @@
 #define MAX_CON 100
 #define BUFFERSIZE 4096 //MACH DAS WEG
 
+#include <string>
+#include <vector>
 
 class Server
 {
 	int m_sockfd;
-	const char * m_path;
-	char *m_buffer;
-	struct header_t {
-		char * type;
-		char * sender;
-		char * recipent;
-		char * subject;
-	} m_header;
-	char *m_message;
+	std::string m_path;
+	std::string m_buffer;
+	std::string m_message;
 public:
 	Server (const char *path);
 	virtual ~Server ();
@@ -26,12 +22,14 @@ public:
 	int Connect (const char *node, const char *port);
 private:
 	void ChildProcess(int childfd);	
-	int splitMessage();
-	int OnRecvSEND();
-	int OnRecvDEL();
-	int OnRecvREAD();
-	int OnRecvLIST();
-	int OnRecvQUIT();
+	void OnRecvSEND();
+	void OnRecvDEL();
+	void OnRecvREAD();
+	void OnRecvLIST();
+	void OnRecvQUIT();
+	void sendERR(int childfd);
+	void createDirectory(const char * dir);
+	void split(const std::string& str, const std::string& delim, std::vector<std::string>& tok);
 };
 
 #endif
