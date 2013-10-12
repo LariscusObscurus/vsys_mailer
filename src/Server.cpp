@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "Conversion.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -14,7 +15,7 @@
 Server::Server(const char *path) : 
 	m_sockfd(-1),
 	m_path(path)
-{	
+{
 }
 
 Server::~Server()
@@ -32,6 +33,7 @@ int Server::Connect (const char *node, const char *port)
 	hints.ai_flags = AI_PASSIVE;
 
 	createDirectory(m_path.c_str());
+	m_path = realpath(m_path.c_str(), NULL);
 
 	if((rv = getaddrinfo(node, port, &hints, &servinfo) != 0)) {
 		throw gai_strerror(rv);
@@ -71,25 +73,24 @@ int Server::Start()
 {
 	sockaddr_storage clientAddr;
 	socklen_t sinSize;
-	int childfd;
 
 	while(1) {
 		sinSize = sizeof(clientAddr);
-		childfd = accept(m_sockfd,(sockaddr *)&clientAddr, &sinSize);
-		if(childfd == -1) {
+		m_childfd = accept(m_sockfd,(sockaddr *)&clientAddr, &sinSize);
+		if(m_childfd == -1) {
 			continue;
 		}
 		if(!fork()) {
-			ChildProcess(childfd);
-			close(childfd);
+			ChildProcess();
+			close(m_childfd);
 			exit(0);
 		}
-		close(childfd);
+		close(m_childfd);
 	}
 	return 0;
 }
 
-void Server::ChildProcess(int childfd)
+void Server::ChildProcess()
 {
 	close(m_sockfd);
 	long bytesReceived;
@@ -101,13 +102,13 @@ void Server::ChildProcess(int childfd)
 	 */
 	const char * msg = "OK\n";
 
-	if(send(childfd, msg,strlen(msg), 0) == -1) {
+	if(send(m_childfd, msg,strlen(msg), 0) == -1) {
 		delete[] buf;
 		return;
 	}
-	if((bytesReceived = recv(childfd,buf ,BUFFERSIZE, 0)) == -1) {
+	if((bytesReceived = recv(m_childfd,buf ,BUFFERSIZE, 0)) == -1) {
 		delete[] buf;
-		sendERR(childfd);
+		sendERR();
 		return;
 	}
 	buf[bytesReceived] = '\0';
@@ -115,7 +116,9 @@ void Server::ChildProcess(int childfd)
 	 * FIXME:
 	 * Message größer als BUFFERSIZE wird abgeschnitten
 	 */
-	std::cout << buf << std::endl;
+#ifdef _DEBUG
+	std::cout << "buffer:" << std::endl << buf << std::endl;
+#endif
 	m_buffer = std::string(buf);
 
 	try {
@@ -130,31 +133,38 @@ void Server::ChildProcess(int childfd)
 		} else if(!strncmp("DEL", buf, 4)) {
 			OnRecvDEL();
 		} else {
-			sendERR(childfd);
+			sendERR();
 		}
-	} catch(char* ex) {
-		sendERR(childfd);
+	} catch(const char* ex) {
+		sendERR();
 	}
 	delete[] buf;
-	close(childfd);
 }
 
 void Server::OnRecvSEND()
 {
-	std::string delim ("\n");
-
 	std::vector<std::string> lines;
 
-	split(m_buffer, delim, lines);
+	split(m_buffer, "\n", lines);
 	
 	/**
 	 * USER directory erstellen
 	 */
-	std::string dir(realpath(m_path.c_str(), NULL));
-	dir.append("/");
-	dir.append(lines[1]);
+	std::string dir(m_path + "/" + lines[2] + "/");
 	createDirectory(dir.c_str());
-	
+
+#ifdef _DEBUG
+	std::cout << "Split:" << std::endl;
+	for(auto& it: lines) {
+		std::cout << it << std::endl;
+	}
+#endif
+
+	std::string logFile(dir + "log");
+	readLogFile(logFile);
+	writeMessage(dir + numberToString<int>(++m_messageCount), lines);
+	writeLogFile(logFile, lines[3]);
+
 	return;
 }
 
@@ -168,6 +178,25 @@ void Server::OnRecvREAD()
 }
 void Server::OnRecvLIST()
 {
+	std::string msg;
+	std::vector<std::string> lines;
+	split(m_buffer, "\n", lines);
+#ifdef _DEBUG
+	std::cout << "Split:" << std::endl;
+	for(auto& it: lines) {
+		std::cout << it << std::endl;
+	}
+#endif
+	
+	std::string dir(m_path + "/" + lines[1] + "/log");
+	readLogFile(dir);
+	msg += numberToString<int>(m_messageCount) + "\n";
+	for(auto it: m_log) {
+		std::vector<std::string> tmp;
+		split(it, ";", tmp);
+		msg += tmp[1] + "\n";
+	}
+	send(m_childfd, msg.c_str(), msg.size(), 0);
 	return;	
 }
 void Server::OnRecvQUIT()
@@ -175,11 +204,11 @@ void Server::OnRecvQUIT()
 	return;	
 }
 
-void Server::sendERR(int childfd)
+void Server::sendERR()
 {
 	const char * err = "ERR\n";
 
-	send(childfd, err, strlen(err), 0);
+	send(m_childfd, err, strlen(err), 0);
 	return;
 	
 }
@@ -187,7 +216,9 @@ void Server::createDirectory(const char * dir)
 {
 	struct stat st = {};
 	if(stat(dir, &st) == -1) {
-		mkdir(dir, 0700);
+		if(( mkdir(dir, 0700)) == -1) {
+			throw (const char *) std::strerror(errno);
+		}
 	}
 
 }
@@ -202,4 +233,68 @@ void Server::split(const std::string& str, const std::string& delim, std::vector
 		lastPos = str.find_first_not_of(delim, pos);
 		pos = str.find_first_of(delim, lastPos);
 	}
+}
+
+void Server::readLogFile(const std::string& path)
+{
+	std::string logString;
+	std::fstream logFileStream;
+	logFileStream.open(path,std::ios::in);
+
+	if(!logFileStream.is_open()) {
+		logFileStream.clear();
+		logFileStream.open(path, std::ios::out);
+		logFileStream.close();
+		m_messageCount = 0;
+		return;
+	} else {
+		while(logFileStream.good()) {
+			/**
+			 * FIXME:
+			 * Whitespaces am Ende von logString entfernen
+			 */
+			char buf[100] = {};
+			logFileStream.read(&buf[0],100);
+			logString.append(buf);
+		}
+	}
+	logFileStream.close();
+
+	split(logString,"\n", m_log);
+	std::string lastLine(m_log[m_log.size() - 1]);
+	std::string number(lastLine.substr(0, lastLine.find_first_of(";")));
+	m_messageCount = stringToNumber<int>(number);
+
+#ifdef _DEBUG
+	std::cout << "Log:" << std::endl;
+	for(auto& it: m_log) {
+		std::cout << it << std::endl;
+	}
+	std::cout << m_messageCount << std::endl;
+#endif
+}
+
+void Server::writeLogFile(const std::string& path, const std::string& subject)
+{
+	std::fstream logStream(path, std::ios::out|std::ios::app);
+	if(!logStream) {
+		throw "writeLogFile";
+	}
+	logStream << numberToString<int>(m_messageCount) 
+		<< ";" << subject 
+		<< "\n";
+
+	logStream.close();
+}
+
+void Server::writeMessage(const std::string& path, const std::vector<std::string>& message)
+{
+	std::fstream messageStream(path, std::ios::out|std::ios::trunc);
+	if(!messageStream) {
+		throw "writeMessage";
+	}
+	for(auto it: message) {
+		messageStream << it << "\n";
+	}
+	messageStream.close();
 }
