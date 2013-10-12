@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "Conversion.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -115,7 +116,7 @@ void Server::ChildProcess(int childfd)
 	 * FIXME:
 	 * Message größer als BUFFERSIZE wird abgeschnitten
 	 */
-	std::cout << buf << std::endl;
+	std::cout << "buffer:" << std::endl << buf << std::endl;
 	m_buffer = std::string(buf);
 
 	try {
@@ -132,7 +133,7 @@ void Server::ChildProcess(int childfd)
 		} else {
 			sendERR(childfd);
 		}
-	} catch(char* ex) {
+	} catch(const char* ex) {
 		sendERR(childfd);
 	}
 	delete[] buf;
@@ -141,8 +142,10 @@ void Server::ChildProcess(int childfd)
 
 void Server::OnRecvSEND()
 {
+	std::string tmp;
+	int messageCount;
+	std::string logString;
 	std::string delim ("\n");
-
 	std::vector<std::string> lines;
 
 	split(m_buffer, delim, lines);
@@ -151,10 +154,45 @@ void Server::OnRecvSEND()
 	 * USER directory erstellen
 	 */
 	std::string dir(realpath(m_path.c_str(), NULL));
-	dir.append("/");
-	dir.append(lines[1]);
+	dir.append("/" + lines[2]);
 	createDirectory(dir.c_str());
-	
+
+	std::cout << "Split:" << std::endl;
+	for(auto& it: lines) {
+		std::cout << it << std::endl;
+	}
+
+	/**
+	 * logFile erstellen
+	 * TODO: 
+	 * In Methode auslagern.
+	 */
+	std::string fileName(dir + "/log");
+
+	std::fstream logFileStream;
+	logFileStream.open(fileName,std::ios::in|std::ios::app);
+
+	if(!logFileStream.is_open()) {
+		logFileStream.clear();
+		logFileStream.open(fileName, std::ios::out);
+		logFileStream.close();
+		logFileStream.open(fileName, std::ios::in|std::ios::app);
+		messageCount = 0;
+	} else {
+		messageCount = 0;
+		while(logFileStream.good()) {
+			/**
+			 * FIXME:
+			 * Whitespaces am Ende von logString entfernen
+			 */
+			char buf[100] = {};
+			logFileStream.read(&buf[0],100);
+			logString.append(buf);
+		}
+		std::cout << logString << std::endl;
+	}
+	std::cout << messageCount << std::endl;
+	logFileStream.close();
 	return;
 }
 
@@ -187,7 +225,9 @@ void Server::createDirectory(const char * dir)
 {
 	struct stat st = {};
 	if(stat(dir, &st) == -1) {
-		mkdir(dir, 0700);
+		if(( mkdir(dir, 0700)) == -1) {
+			throw (const char *) std::strerror(errno);
+		}
 	}
 
 }
