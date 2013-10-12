@@ -1,98 +1,101 @@
-#include <fcntl.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <stdio.h>
-#include <netinet/in.h>
-#include <resolv.h>
+/**
+ * @file client.cpp
+ * @author Florian Wuerrer <if13b077@technikum-wien.at>
+ * @date 11.10.2013
+ *
+ * @brief client for client-server application
+ * 
+ **/
+
+/** include **/
+#include "client.h"
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
+#include <netdb.h>
 #include <unistd.h>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+#include <fstream>
 
-int main(int argv, char** argc){
-
-
-//Variablen initialisierung - beginn ***
-    int host_port= 5846; //Iein freier Port
-    char* host_name="127.0.0.1"; //Localhost halt
-
-    struct sockaddr_in my_addr;
-
-    char buffer[1024];
-    int bytecount;
-    int buffer_len=0;
-
-    int hsock;
-    int * p_int;
-    int err;
-// end ***
-
-
-//Socketaufbau
-    hsock = socket(AF_INET, SOCK_STREAM, 0);
-    if(hsock == -1){
-        printf("Error initializing socket %d\n",errno);
-        goto FINISH;
-    }
-    
-    p_int = (int*)malloc(sizeof(int));
-    *p_int = 1;
-        
-    if( (setsockopt(hsock, SOL_SOCKET, SO_REUSEADDR, (char*)p_int, sizeof(int)) == -1 )||
-        (setsockopt(hsock, SOL_SOCKET, SO_KEEPALIVE, (char*)p_int, sizeof(int)) == -1 ) ){
-        printf("Error setting options %d\n",errno);
-        free(p_int);
-        goto FINISH;
-    }
-    free(p_int);
-
-    my_addr.sin_family = AF_INET ;
-    my_addr.sin_port = htons(host_port);
-    
-    memset(&(my_addr.sin_zero), 0, 8);
-    my_addr.sin_addr.s_addr = inet_addr(host_name);
-
-//Connect zum Server
-    if( connect( hsock, (struct sockaddr*)&my_addr, sizeof(my_addr)) == -1 ){
-        if((err = errno) != EINPROGRESS){
-            fprintf(stderr, "Error connecting socket %d\n", errno);
-            goto FINISH;
-        }
-    }
+/** macros **/
+/** MAXLINE LENGTH**/
+#define LINEMAX 1024
+/** Error message for close**/
+#define CLOSEERRORMSG "close error\n"
+/** Error message for fclose**/
+#define FCLOSEERRORMSG "fclose error\n"
 
 
 
+int sockfd = -1;
 
-
-//Die Message an den Server, also die eigentliche Nachricht in der Mail
-//Werd ich noch erweitern mit Betreff, bzw. dennoch alles in einen Buffer hauen und mit einer bestimmten Zeichenfolge     //abgrenzen. (z.B. Ich bin ein Betreff|||Ich bin die Nachricht)
-
-    buffer_len = 1024;
-    memset(buffer, '\0', buffer_len);
-
-    printf("Gib bitte den Text deiner Mail an. (press enter)\n");
-    fgets(buffer, 1024, stdin);
-    buffer[strlen(buffer)-1]='\0';
-    
-    if( (bytecount=send(hsock, buffer, strlen(buffer),0))== -1){
-        fprintf(stderr, "Error sending data %d\n", errno);
-        goto FINISH;
-    }
-	
-    printf("Sent bytes %d\n", bytecount);
-
-    if((bytecount = recv(hsock, buffer, buffer_len, 0))== -1){
-        fprintf(stderr, "Error receiving data %d\n", errno);
-        goto FINISH;
-    }
-	
-    printf("Recieved bytes %d\nReceived string \"%s\"\n", bytecount, buffer);
-
-    close(hsock);
-    
-FINISH:
-;
+Client::Client() {
 }
 
+Client::~Client(){
+	close(sockfd);
+}
 
-//Soll ich meinen Server (hab ich nur zum testen geschrieben, also nix großes) auch raufladen`?
+int Client::Connect (char* const server_hostname, const char* server_service){
+        struct addrinfo* ai,* ai_sel = NULL;
+        struct addrinfo hints;
+        int err;
+
+        hints.ai_flags = AI_PASSIVE;
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = IPPROTO_TCP;
+        hints.ai_addrlen = 0;
+        hints.ai_addr = NULL;
+        hints.ai_canonname = NULL;
+        hints.ai_next = NULL;
+
+        //resolve ipaddr
+        if((err = getaddrinfo(server_hostname, server_service, &hints, &ai)) != 0){
+                (void) fprintf(stderr, "ERROR:  %s\n", gai_strerror(err));
+                exit(EXIT_FAILURE);
+        }
+
+        if(ai == NULL){
+                (void) fprintf(stderr, "Could not resolve host %s.\n", server_hostname);
+                freeaddrinfo(ai);
+                exit(EXIT_FAILURE);
+        }
+
+        ai_sel = ai;
+
+        //creat socket
+        if((sockfd = socket(ai_sel->ai_family, ai_sel->ai_socktype, ai->ai_protocol)) < 0){
+                (void) fprintf(stderr, "Socket creation failed\n");
+                close(sockfd);
+                freeaddrinfo(ai);
+                exit(EXIT_FAILURE);
+        }
+
+        //connect to server
+        if(connect(sockfd, ai_sel->ai_addr, ai_sel->ai_addrlen) < 0){
+                (void) close(sockfd);
+                freeaddrinfo(ai);
+                (void) fprintf(stderr, "Connection failed.\n");
+                close(sockfd);
+                exit(EXIT_FAILURE);
+        }
+        
+	freeaddrinfo(ai);
+        //freeaddrinfo(ai_sel);
+
+	return sockfd;
+}
+
+int Client::SendMessage(char* const message,int size){
+	int bytes_sent = write(sockfd, message, size);
+                if(bytes_sent < 0){
+                        printf("Write Error.");
+                        (void) close(sockfd);
+                        exit(EXIT_FAILURE);
+                }
+        
+	return 0;
+}
