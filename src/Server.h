@@ -54,5 +54,6 @@ private:
 	void writeLogFile(const std::string& path, const std::string& subject);
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
 	std::string readMessage(const std::string& path);
+	void rewriteLog(std::string& path);
 };
 #endif

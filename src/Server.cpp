@@ -130,7 +130,7 @@ void Server::ChildProcess()
 			OnRecvLIST();
 		} else if(!strncmp("QUIT", buf, 4)) {
 			OnRecvQUIT();
-		} else if(!strncmp("DEL", buf, 4)) {
+		} else if(!strncmp("DEL", buf, 3)) {
 			OnRecvDEL();
 		} else {
 			sendERR();
@@ -153,13 +153,6 @@ void Server::OnRecvSEND()
 	std::string dir(m_path + "/" + lines[2] + "/");
 	createDirectory(dir.c_str());
 
-#ifdef _DEBUG
-	std::cout << "Split:" << std::endl;
-	for(auto& it: lines) {
-		std::cout << it << std::endl;
-	}
-#endif
-
 	std::string logFile(dir + "log");
 	readLogFile(logFile);
 	writeMessage(dir + numberToString<int>(++m_messageCount), lines);
@@ -170,6 +163,24 @@ void Server::OnRecvSEND()
 
 void Server::OnRecvDEL()
 {
+	std::string msg;
+	std::vector<std::string> lines;
+	split(m_buffer, "\n", lines);
+
+	std::string dir(m_path + "/" + lines[1] + "/" + lines[2]);
+	std::string logDir(m_path + "/" + lines[1] + "/log");
+	
+	readLogFile(logDir);
+	for(int i = 0; i <= (int)m_log.size(); i++) {
+		std::string::size_type pos = m_log[i].find_first_of(";",0);
+		if(m_log[i].substr(0,pos) == lines[2]){
+			m_log.erase(m_log.begin() + i);
+			rewriteLog(logDir);
+			std::system(std::string("rm " + dir).c_str());
+			return;
+		}
+	}
+	sendERR();
 	return;	
 }
 
@@ -179,12 +190,6 @@ void Server::OnRecvREAD()
 	std::vector<std::string> lines;
 	split(m_buffer, "\n", lines);
 
-#ifdef _DEBUG
-	std::cout << "Split:" << std::endl;
-	for(auto& it: lines) {
-		std::cout << it << std::endl;
-	}
-#endif
 	std::string dir(m_path + "/" + lines[1] + "/" + lines[2]);
 
 	try {
@@ -201,12 +206,6 @@ void Server::OnRecvLIST()
 	std::string msg;
 	std::vector<std::string> lines;
 	split(m_buffer, "\n", lines);
-#ifdef _DEBUG
-	std::cout << "Split:" << std::endl;
-	for(auto& it: lines) {
-		std::cout << it << std::endl;
-	}
-#endif
 	
 	std::string dir(m_path + "/" + lines[1] + "/log");
 	readLogFile(dir);
@@ -297,7 +296,7 @@ void Server::readLogFile(const std::string& path)
 void Server::writeLogFile(const std::string& path, const std::string& subject)
 {
 	std::fstream logStream(path, std::ios::out|std::ios::app);
-	if(!logStream) {
+	if(!logStream.is_open()) {
 		throw "writeLogFile";
 	}
 	logStream << numberToString<int>(m_messageCount) 
@@ -310,7 +309,7 @@ void Server::writeLogFile(const std::string& path, const std::string& subject)
 void Server::writeMessage(const std::string& path, const std::vector<std::string>& message)
 {
 	std::fstream messageStream(path, std::ios::out|std::ios::trunc);
-	if(!messageStream) {
+	if(!messageStream.is_open()) {
 		throw "writeMessage";
 	}
 	for(auto it: message) {
@@ -323,7 +322,7 @@ std::string Server::readMessage(const std::string& path)
 {
 	std::string message;
 	std::fstream messageStream(path,std::ios::in);
-	if(!messageStream) {
+	if(!messageStream.is_open()) {
 		throw "readMessage";
 	}
 	while(messageStream.good()) {
@@ -331,5 +330,17 @@ std::string Server::readMessage(const std::string& path)
 		messageStream.read(&buf[0],100);
 		message += buf;
 	}
+	messageStream.close();
 	return message;
+}
+
+void Server::rewriteLog(std::string& path) { 
+	std::fstream logStream(path, std::ios::out|std::ios::trunc);
+	if(!logStream.is_open()) {
+		throw "rewriteLog";
+	}
+	for(auto &it: m_log) {
+		logStream << it << "\n";
+	}
+	logStream.close();
 }
