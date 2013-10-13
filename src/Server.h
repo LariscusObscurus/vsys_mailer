@@ -22,7 +22,7 @@ public:
 	virtual ~Server ();
 	/**
 	 * Start:
-	 * 	Server beginnt am Socket zu horchen und akzeptiert verbindungen.
+	 * 	Server beginnt am Socket zu horchen und akzeptiert Verbindungen.
 	 * 	Für jede akzeptierte Verbindung wird ein Kindprozess abgespalten.
 	 */
 	int Start ();
@@ -42,7 +42,7 @@ private:
 	void createDirectory(const char * dir);
 	/**
 	 * split:
-	 * 	string annhand der angegebenen Trennzeichen aufteilen
+	 * 	string anhand der angegebenen Trennzeichen aufteilen
 	 */
 	void split(const std::string& str, const std::string& delim, std::vector<std::string>& tok);
 	/**
@@ -53,5 +53,6 @@ private:
 	void readLogFile(const std::string& path);
 	void writeLogFile(const std::string& path, const std::string& subject);
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
+	std::string readMessage(const std::string& path);
 };
 #endif

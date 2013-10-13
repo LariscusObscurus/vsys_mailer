@@ -172,10 +172,30 @@ void Server::OnRecvDEL()
 {
 	return;	
 }
+
 void Server::OnRecvREAD()
 {
+	std::string msg;
+	std::vector<std::string> lines;
+	split(m_buffer, "\n", lines);
+
+#ifdef _DEBUG
+	std::cout << "Split:" << std::endl;
+	for(auto& it: lines) {
+		std::cout << it << std::endl;
+	}
+#endif
+	std::string dir(m_path + "/" + lines[1] + "/" + lines[2]);
+
+	try {
+		msg = readMessage(dir);
+	} catch(const char *ex) {
+		sendERR();
+	}
+	send(m_childfd, msg.c_str(), msg.size(), 0);
 	return;	
 }
+
 void Server::OnRecvLIST()
 {
 	std::string msg;
@@ -255,7 +275,7 @@ void Server::readLogFile(const std::string& path)
 			 */
 			char buf[100] = {};
 			logFileStream.read(&buf[0],100);
-			logString.append(buf);
+			logString += buf;
 		}
 	}
 	logFileStream.close();
@@ -297,4 +317,19 @@ void Server::writeMessage(const std::string& path, const std::vector<std::string
 		messageStream << it << "\n";
 	}
 	messageStream.close();
+}
+
+std::string Server::readMessage(const std::string& path)
+{
+	std::string message;
+	std::fstream messageStream(path,std::ios::in);
+	if(!messageStream) {
+		throw "readMessage";
+	}
+	while(messageStream.good()) {
+		char buf[100] = {};
+		messageStream.read(&buf[0],100);
+		message += buf;
+	}
+	return message;
 }
