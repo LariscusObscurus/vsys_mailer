@@ -1,13 +1,3 @@
-/**
- * @file client.cpp
- * @author Florian Wuerrer <if13b077@technikum-wien.at>
- * @date 11.10.2013
- *
- * @brief client for client-server application
- * 
- **/
-
-/** include **/
 #include "client.h"
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -18,15 +8,6 @@
 #include <cstring>
 #include <cerrno>
 #include <fstream>
-
-/** macros **/
-/** MAXLINE LENGTH**/
-#define LINEMAX 1024
-/** Error message for close**/
-#define CLOSEERRORMSG "close error\n"
-/** Error message for fclose**/
-#define FCLOSEERRORMSG "fclose error\n"
-
 
 
 int sockfd = -1;
@@ -99,3 +80,19 @@ int Client::SendMessage(char* const message,int size){
         
 	return 0;
 }
+
+/*void Client::ReadMessage(){
+	close(sockfd);
+	long bytesReceived;
+	char *buf = new char[BUFFERSIZE];
+
+	if((bytesReceived = recv(sockedfd,buf ,BUFFERSIZE, 0)) == -1) {
+		delete[] buf;
+		sendERR(childfd);
+		return;
+	}
+	buf[bytesReceived] = '\0';
+
+	std::cout << buf << std::endl;
+	m_buffer = std::string(buf);
+}*/
