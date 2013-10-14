@@ -176,7 +176,7 @@ void Server::OnRecvDEL()
 		if(m_log[i].substr(0,pos) == lines[2]){
 			m_log.erase(m_log.begin() + i);
 			rewriteLog(logDir);
-			std::system(std::string("rm " + dir).c_str());
+			unlink(dir.c_str());
 			return;
 		}
 	}
@@ -278,11 +278,15 @@ void Server::readLogFile(const std::string& path)
 		}
 	}
 	logFileStream.close();
+	if(logString.size() > 0) {
+		split(logString,"\n", m_log);
+		std::string lastLine(m_log[m_log.size() - 1]);
+		std::string number(lastLine.substr(0, lastLine.find_first_of(";")));
+		m_messageCount = stringToNumber<int>(number);
 
-	split(logString,"\n", m_log);
-	std::string lastLine(m_log[m_log.size() - 1]);
-	std::string number(lastLine.substr(0, lastLine.find_first_of(";")));
-	m_messageCount = stringToNumber<int>(number);
+	} else {
+		m_messageCount = 0;
+	}
 
 #ifdef _DEBUG
 	std::cout << "Log:" << std::endl;

@@ -6,7 +6,7 @@ SUBLEVEL = 1
 CC = g++
 NAME = Server
 DEBUG = -g3 -D_DEBUG
-CFLAGS = -c -Wall -Wconversion -O3 -std=c++11 
+CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -O3 -std=c++11 
 
 SRC = src/main.cpp src/Server.h src/Server.cpp
 OBJ = $(SRC:.cpp=.o)
