@@ -1,16 +1,15 @@
 #ifndef	SERVER_H
 #define SERVER_H
 
-#define PATHLENGTH 256
-#define BACKLOG 10
-#define MAX_CON 100
-#define BUFFERSIZE 4096 //MACH DAS WEG
-
 #include <string>
 #include <vector>
 
 class Server
 {
+	static const unsigned int pathLength = 256;
+	static const unsigned int backLog = 10;
+	static const unsigned int bufferSize = 4096;
+
 	int m_sockfd;
 	int m_childfd;
 	int m_messageCount;

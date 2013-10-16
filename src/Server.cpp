@@ -63,7 +63,7 @@ int Server::Connect (const char *node, const char *port)
 	}
 	freeaddrinfo(servinfo);
 
-	if(listen(m_sockfd, BACKLOG) == -1) {
+	if(listen(m_sockfd, backLog) == -1) {
 		throw std::strerror(errno);
 	}
 	return 0;
@@ -94,7 +94,7 @@ void Server::ChildProcess()
 {
 	close(m_sockfd);
 	long bytesReceived;
-	char *buf = new char[BUFFERSIZE];
+	char *buf = new char[bufferSize];
 
 	/**
 	 * TODO:
@@ -106,7 +106,7 @@ void Server::ChildProcess()
 		delete[] buf;
 		return;
 	}
-	if((bytesReceived = recv(m_childfd,buf ,BUFFERSIZE, 0)) == -1) {
+	if((bytesReceived = recv(m_childfd,buf, bufferSize, 0)) == -1) {
 		delete[] buf;
 		sendERR();
 		return;
@@ -114,7 +114,7 @@ void Server::ChildProcess()
 	buf[bytesReceived] = '\0';
 	/**
 	 * FIXME:
-	 * Message größer als BUFFERSIZE wird abgeschnitten
+	 * Message größer als bufferSize wird abgeschnitten
 	 */
 #ifdef _DEBUG
 	std::cout << "buffer:" << std::endl << buf << std::endl;
