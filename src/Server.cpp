@@ -33,7 +33,11 @@ int Server::Connect (const char *node, const char *port)
 	hints.ai_flags = AI_PASSIVE;
 
 	createDirectory(m_path.c_str());
-	m_path = realpath(m_path.c_str(), NULL);
+
+	/*realpath must be free'd*/
+	char * tmp = realpath(m_path.c_str(), NULL);
+	m_path = tmp;
+	free(tmp);
 
 	if((rv = getaddrinfo(node, port, &hints, &servinfo) != 0)) {
 		throw ServerException(gai_strerror(rv));
