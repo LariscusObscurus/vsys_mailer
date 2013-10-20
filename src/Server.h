@@ -1,6 +1,7 @@
 #ifndef	SERVER_H
 #define SERVER_H
 
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -16,7 +17,17 @@ class Server
 	std::string m_path;
 	std::string m_buffer;
 	std::vector<std::string> m_log;
+	
 public:
+	class ServerException : public std::exception 
+	{
+		const char* m_msg;
+		public:
+			ServerException(const char *msg);
+			virtual ~ServerException() throw();
+			virtual const char* what() const throw(); 
+	};
+
 	Server (const char *path);
 	virtual ~Server ();
 	/**
@@ -52,7 +63,7 @@ private:
 	void readLogFile(const std::string& path);
 	void writeLogFile(const std::string& path, const std::string& subject);
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
-	std::string readMessage(const std::string& path);
+	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
 };
 #endif

@@ -36,7 +36,7 @@ int Server::Connect (const char *node, const char *port)
 	m_path = realpath(m_path.c_str(), NULL);
 
 	if((rv = getaddrinfo(node, port, &hints, &servinfo) != 0)) {
-		throw gai_strerror(rv);
+		throw ServerException(gai_strerror(rv));
 	}
 	
 	for(p = servinfo; p != NULL; p = p->ai_next) {
@@ -46,7 +46,7 @@ int Server::Connect (const char *node, const char *port)
 			continue;
 		}
 		if(setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int)) == -1) {
-			throw "Server: setsockopt";
+			throw ServerException("Server: setsockopt");
 		}
 
 		if(bind(m_sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) {
@@ -58,13 +58,13 @@ int Server::Connect (const char *node, const char *port)
 
 	if(p == NULL)
 	{
-		throw "Server: Could not create socket";
+		throw ServerException("Server: Could not create socket");
 
 	}
 	freeaddrinfo(servinfo);
 
 	if(listen(m_sockfd, backLog) == -1) {
-		throw std::strerror(errno);
+		throw ServerException(std::strerror(errno));
 	}
 	return 0;
 }
@@ -135,7 +135,7 @@ void Server::ChildProcess()
 		} else {
 			sendERR();
 		}
-	} catch(const char* ex) {
+	} catch(ServerException) {
 		sendERR();
 	}
 	delete[] buf;
@@ -151,7 +151,11 @@ void Server::OnRecvSEND()
 	 * USER directory erstellen
 	 */
 	std::string dir(m_path + "/" + lines[2] + "/");
+	try {
 	createDirectory(dir.c_str());
+	} catch(ServerException e) {
+		std::cerr << e.what() << std::endl;
+	}
 
 	std::string logFile(dir + "log");
 	readLogFile(logFile);
@@ -194,7 +198,7 @@ void Server::OnRecvREAD()
 
 	try {
 		msg = readMessage(dir);
-	} catch(const char *ex) {
+	} catch(ServerException) {
 		sendERR();
 	}
 	send(m_childfd, msg.c_str(), msg.size(), 0);
@@ -236,7 +240,7 @@ void Server::createDirectory(const char * dir)
 	struct stat st = {};
 	if(stat(dir, &st) == -1) {
 		if(( mkdir(dir, 0700)) == -1) {
-			throw (const char *) std::strerror(errno);
+			throw ServerException((const char *) std::strerror(errno));
 		}
 	}
 
@@ -301,7 +305,7 @@ void Server::writeLogFile(const std::string& path, const std::string& subject)
 {
 	std::fstream logStream(path, std::ios::out|std::ios::app);
 	if(!logStream.is_open()) {
-		throw "writeLogFile";
+		throw ServerException("writeLogFile");
 	}
 	logStream << numberToString<int>(m_messageCount) 
 		<< ";" << subject 
@@ -314,7 +318,7 @@ void Server::writeMessage(const std::string& path, const std::vector<std::string
 {
 	std::fstream messageStream(path, std::ios::out|std::ios::trunc);
 	if(!messageStream.is_open()) {
-		throw "writeMessage";
+		throw ServerException("writeMessage");
 	}
 	for(auto it: message) {
 		messageStream << it << "\n";
@@ -322,12 +326,12 @@ void Server::writeMessage(const std::string& path, const std::vector<std::string
 	messageStream.close();
 }
 
-std::string Server::readMessage(const std::string& path)
+const std::string Server::readMessage(const std::string& path) const
 {
 	std::string message;
 	std::fstream messageStream(path,std::ios::in);
 	if(!messageStream.is_open()) {
-		throw "readMessage";
+		throw ServerException("readMessage");
 	}
 	while(messageStream.good()) {
 		char buf[100] = {};
@@ -341,10 +345,26 @@ std::string Server::readMessage(const std::string& path)
 void Server::rewriteLog(std::string& path) { 
 	std::fstream logStream(path, std::ios::out|std::ios::trunc);
 	if(!logStream.is_open()) {
-		throw "rewriteLog";
+		throw ServerException("rewriteLog");
 	}
 	for(auto &it: m_log) {
 		logStream << it << "\n";
 	}
 	logStream.close();
+}
+
+Server::ServerException::ServerException(const char*msg) :
+	m_msg(msg)
+{
+
+}
+
+Server::ServerException::~ServerException() throw()
+{
+
+}
+
+const char * Server::ServerException::what() const throw()
+{
+	return m_msg;
 }
