@@ -10,22 +10,27 @@ class Server
 	static const unsigned int pathLength = 256;
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
+	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!";
+
+	constexpr static const char * ldapServer = "ldap.technikum-wien.at";
+	constexpr static const char * ldapSearchBase = "dc=technikum-wien.at,dc=at";
 
 	int m_sockfd;
 	int m_childfd;
 	int m_messageCount;
 	std::string m_path;
-	std::string m_buffer;
+	std::string m_message;
+	std::vector<char> m_data;
 	std::vector<std::string> m_log;
-	
+
 public:
-	class ServerException : public std::exception 
+	class ServerException : public std::exception
 	{
 		const char* m_msg;
 		public:
 			ServerException(const char *msg);
 			virtual ~ServerException() throw();
-			virtual const char* what() const throw(); 
+			virtual const char* what() const throw();
 	};
 
 	Server (const char *path);
@@ -42,7 +47,8 @@ public:
 	 */
 	int Connect (const char *node, const char *port);
 private:
-	void ChildProcess();	
+	void ChildProcess();
+	void OnRecvLOGIN();
 	void OnRecvSEND();
 	void OnRecvDEL();
 	void OnRecvREAD();
@@ -50,6 +56,7 @@ private:
 	void OnRecvQUIT();
 	void sendERR();
 	void createDirectory(const char * dir);
+	void splitAttached(const std::vector<char>& buffer, const std::string& delim);
 	/**
 	 * split:
 	 * 	string anhand der angegebenen Trennzeichen aufteilen
