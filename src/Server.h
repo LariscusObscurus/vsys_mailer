@@ -14,6 +14,7 @@ class Server
 
 	constexpr static const char * ldapServer = "ldap.technikum-wien.at";
 	constexpr static const char * ldapSearchBase = "dc=technikum-wien.at,dc=at";
+	constexpr static const char * ldapFilter = "(uid=if09b*)";
 
 	int m_sockfd;
 	int m_childfd;

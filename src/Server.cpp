@@ -130,7 +130,9 @@ void Server::ChildProcess()
 	delete[] buf;
 
 	splitAttached(bufferVector,attachmentDelim);
-
+#ifdef _DEBUG
+	std::cout << "Message: " << m_message << std::endl;
+#endif
 	try {
 		if(!strncmp("SEND", m_message.c_str(), 4)){
 			OnRecvSEND();
@@ -157,17 +159,69 @@ void Server::OnRecvLOGIN()
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
 	LDAP *ld;
-	if((ld =ldap_open(ldapServer, LDAP_PORT)) == nullptr) {
+	LDAPMessage *result, *entry;
+	BerElement *ber;
+	int rv;
+	char **vals;
+	char *attribute;
+	char * attribs[3];
+
+
+	if((ld =ldap_init(ldapServer, LDAP_PORT)) == nullptr) {
 		sendERR();
+#ifdef _DEBUG
+		std::cout << "LDAP-Error: Open" << std::endl;
+#endif
 		return;
 	}
-	std::string dn("uid=" + lines[1] +", ou=people, dc=technikum-wien, dc=at");
-	if(ldap_bind_s(ld, dn.c_str(), lines[2].c_str(), LDAP_AUTH_SIMPLE) != LDAP_SUCCESS) {
+	if(ldap_simple_bind_s(ld, "uid=if12b076,ou=people,dc=technikum-wien,dc=at", "") != LDAP_SUCCESS) {
 		sendERR();
+#ifdef _DEBUG
+		std::cout << "LDAP-Error: Bind" << std::endl;
+#endif
 		return;
+	}
+
+	attribs[0] = strdup("uid");
+	attribs[1] = strdup("cn");
+	attribs[2] = nullptr;
+
+	if((rv = ldap_search_s(ld, ldapSearchBase, LDAP_SCOPE_SUBTREE, ldapFilter, attribs, 0, &result)) != LDAP_SUCCESS) {
+		sendERR();
+#ifdef _DEBUG
+		std::cout << "LDAP-Error: Search" << std::endl;
+		std::cout << ldap_err2string(rv) << std::endl;
+#endif
+		free(attribs[0]);
+		free(attribs[1]);
+		if(result != nullptr) ldap_msgfree(result);
+		return;
+	}
+
+	for(entry = ldap_first_entry(ld, result); entry!= nullptr; entry = ldap_next_entry(ld, entry)) {
+		for (attribute = ldap_first_attribute(ld,entry,&ber);
+		     attribute != nullptr;
+		     attribute = ldap_next_attribute(ld,entry,ber)) {
+
+		   if ((vals=ldap_get_values(ld,entry,attribute)) != nullptr) {
+
+		      for (int i = 0; vals[i] != nullptr; i++) {
+			      std::cout << attribute << " " << vals[i] << std::endl;
+		      }
+
+		      ldap_value_free(vals);
+		   }
+		   ldap_memfree(attribute);
+		}
+		if (ber != nullptr) ber_free(ber,0);
+
 	}
 	std::cout << "SUCCESSFULL LOGIN" << std::endl;
+	if(result != nullptr) ldap_msgfree(result);
+	free(attribs[0]);
+	free(attribs[1]);
 	ldap_unbind(ld);
+	return;
 }
 
 void Server::OnRecvSEND()

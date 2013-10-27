@@ -4,13 +4,17 @@ PATCHLEVEL = 0
 SUBLEVEL = 1
 
 CC = g++
-NAME = Server
-CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -std=c++11 -DLDAP_DEPRECATED
-LFLAGS= -lldap
-ARCHIVE=$(NAME)-$(VERSION)
+SERV = Server
+CLIENT = Client
 
-SRC = src/main.cpp src/Server.cpp
-OBJ = $(SRC:.cpp=.o)
+CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -std=c++11 -DLDAP_DEPRECATED
+LFLAGS= -lldap -llber
+
+SERVSRC = src/main.cpp src/Server.cpp
+CLIENTSRC = src/client.cpp src/mainClient.cpp
+
+OBJSERV = $(SERVSRC:.cpp=.o)
+OBJCLIENT = $(CLIENTSRC:.cpp=.o)
 
 ifdef NDEBUG
 CFLAGS+=-O3
@@ -18,19 +22,17 @@ else
 CFLAGS+=-g -D_DEBUG
 endif
 
-all: $(SRC) $(NAME)
+all: $(SERV) $(CLIENT)
 
-$(NAME): $(OBJ)
-	$(CC) $(OBJ) -o $@ $(LFLAGS)
+$(CLIENT): $(OBJCLIENT)
+	$(CC) $(OBJCLIENT) -o $@
+
+$(SERV): $(OBJSERV)
+	$(CC) $(OBJSERV) -o $@ $(LFLAGS)
 
 clean:
-	rm $(OBJ) $(NAME)
+	rm $(OBJSERV) $(SERV)
+	rm $(OBJCLIENT) $(CLIENT)
 
-dist:
-	cd ..; tar czf $(ARCHIVE).tar.gz $(NAME); mv $(ARCHIVE).tar.gz $(NAME)
-
-distclean:
-	rm $(ARCHIVE).tar.gz
-
-%.o: %.cpp
+%.o: %.cpp 
 	$(CC) -c $< -o $@ $(CFLAGS)
