@@ -1,3 +1,4 @@
+#define LDAP_DEPRECATED 1
 #include <ldap.h>
 #include "Server.h"
 #include "Conversion.h"
@@ -13,6 +14,9 @@
 #include <fstream>
 #include <algorithm>
 #include <iterator>
+#include <thread>
+#include <functional>
+#include <fcntl.h>
 
 Server::Server(const char *path) :
 	m_sockfd(-1),
@@ -55,6 +59,11 @@ int Server::Connect (const char *node, const char *port)
 			throw ServerException("Server: setsockopt");
 		}
 
+		if(fcntl(m_sockfd, F_SETFL, O_NONBLOCK) != 0)
+		{
+			throw ServerException("Server: O_NONBLOCK");
+		}
+
 		if(bind(m_sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) {
 			close(m_sockfd);
 			continue;
@@ -79,8 +88,10 @@ int Server::Start()
 {
 	sockaddr_storage clientAddr;
 	socklen_t sinSize;
+	bool cont = true;
+	std::thread t1(&Server::inputThread,this,std::ref(cont));
 
-	while(1) {
+	while(cont) {
 		sinSize = sizeof(clientAddr);
 		m_childfd = accept(m_sockfd,(sockaddr *)&clientAddr, &sinSize);
 		if(m_childfd == -1) {
@@ -90,10 +101,11 @@ int Server::Start()
 			close(m_sockfd);
 			ChildProcess();
 			close(m_childfd);
-			exit(0);
+			_exit(0);
 		}
 		close(m_childfd);
 	}
+	t1.join();
 	return 0;
 }
 
@@ -154,74 +166,69 @@ void Server::ChildProcess()
 	}
 }
 
-void Server::OnRecvLOGIN()
+bool Server::OnRecvLOGIN()
 {
+	bool result = false;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
-	LDAP *ld;
-	LDAPMessage *result, *entry;
-	BerElement *ber;
+
+	LDAP *ld,*ldAuth;
+	LDAPMessage *searchResult, *entry;
 	int rv;
-	char **vals;
-	char *attribute;
+
+	char *dn = nullptr;
 	char * attribs[3];
+	std::string ldapFilter = "(uid=" + lines[1] + ")";
 
 
-	if((ld =ldap_init(ldapServer, LDAP_PORT)) == nullptr) {
+	if((rv =ldap_initialize(&ld, ldapServer)) != LDAP_SUCCESS) {
 		sendERR();
-#ifdef _DEBUG
 		std::cout << "LDAP-Error: Open" << std::endl;
-#endif
-		return;
+		std::cout << ldap_err2string(rv) << std::endl;
+		return false;
 	}
-	if(ldap_simple_bind_s(ld, "uid=if12b076,ou=people,dc=technikum-wien,dc=at", "") != LDAP_SUCCESS) {
+	if(ldap_bind_s(ld, "uid=if12b076,ou=people,dc=technikum-wien,dc=at", "",LDAP_AUTH_SIMPLE) != LDAP_SUCCESS) {
 		sendERR();
-#ifdef _DEBUG
 		std::cout << "LDAP-Error: Bind" << std::endl;
-#endif
-		return;
+		ldap_unbind(ld);
+		return false;
 	}
 
 	attribs[0] = strdup("uid");
 	attribs[1] = strdup("cn");
 	attribs[2] = nullptr;
 
-	if((rv = ldap_search_s(ld, ldapSearchBase, LDAP_SCOPE_SUBTREE, ldapFilter, attribs, 0, &result)) != LDAP_SUCCESS) {
+	if(ldap_search_s(ld, ldapSearchBase, LDAP_SCOPE_SUBTREE, ldapFilter.c_str(), attribs, 0, &searchResult) != LDAP_SUCCESS) {
 		sendERR();
-#ifdef _DEBUG
 		std::cout << "LDAP-Error: Search" << std::endl;
-		std::cout << ldap_err2string(rv) << std::endl;
-#endif
 		free(attribs[0]);
 		free(attribs[1]);
-		if(result != nullptr) ldap_msgfree(result);
-		return;
+		if(searchResult != nullptr) ldap_msgfree(searchResult);
+		return false;
 	}
 
-	for(entry = ldap_first_entry(ld, result); entry!= nullptr; entry = ldap_next_entry(ld, entry)) {
-		for (attribute = ldap_first_attribute(ld,entry,&ber);
-		     attribute != nullptr;
-		     attribute = ldap_next_attribute(ld,entry,ber)) {
-
-		   if ((vals=ldap_get_values(ld,entry,attribute)) != nullptr) {
-
-		      for (int i = 0; vals[i] != nullptr; i++) {
-			      std::cout << attribute << " " << vals[i] << std::endl;
-		      }
-
-		      ldap_value_free(vals);
-		   }
-		   ldap_memfree(attribute);
+	for(entry = ldap_first_entry(ld, searchResult); entry!= nullptr; entry = ldap_next_entry(ld, entry)) {
+		dn = ldap_get_dn(ld,entry);
+		if(dn != nullptr) {
+			std::cout << dn << std::endl;
+			ldap_initialize(&ldAuth,ldapServer);
+			rv = ldap_bind_s(ldAuth, dn, lines[2].c_str(), LDAP_AUTH_SIMPLE);
+			if(rv != 0) {
+				std::cout << "LOGIN FAILED" << std::endl;
+				std::cout << ldap_err2string(rv) << std::endl;
+			} else {
+				std::cout << "SUCCESSFULL LOGIN" << std::endl;
+				result= true;
+			}
+			ldap_unbind(ldAuth);
 		}
-		if (ber != nullptr) ber_free(ber,0);
-
 	}
-	std::cout << "SUCCESSFULL LOGIN" << std::endl;
-	if(result != nullptr) ldap_msgfree(result);
+	if(searchResult != nullptr) ldap_msgfree(searchResult);
+	if(dn != nullptr) free(dn);
 	free(attribs[0]);
 	free(attribs[1]);
 	ldap_unbind(ld);
-	return;
+	return result;
 }
 
 void Server::OnRecvSEND()
@@ -462,4 +469,11 @@ Server::ServerException::~ServerException() throw()
 const char * Server::ServerException::what() const throw()
 {
 	return m_msg;
+}
+
+void Server::inputThread(bool& cont)
+{
+	std::string tmp;
+	std::getline(std::cin,tmp);
+	cont = false;
 }

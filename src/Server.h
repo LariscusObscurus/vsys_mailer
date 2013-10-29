@@ -12,9 +12,8 @@ class Server
 	static const unsigned int bufferSize = 4096;
 	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!";
 
-	constexpr static const char * ldapServer = "ldap.technikum-wien.at";
-	constexpr static const char * ldapSearchBase = "dc=technikum-wien.at,dc=at";
-	constexpr static const char * ldapFilter = "(uid=if09b*)";
+	constexpr static const char * ldapServer = "ldap://ldap.technikum-wien.at:389";
+	constexpr static const char * ldapSearchBase = "dc=technikum-wien,dc=at";
 
 	int m_sockfd;
 	int m_childfd;
@@ -49,7 +48,7 @@ public:
 	int Connect (const char *node, const char *port);
 private:
 	void ChildProcess();
-	void OnRecvLOGIN();
+	bool OnRecvLOGIN();
 	void OnRecvSEND();
 	void OnRecvDEL();
 	void OnRecvREAD();
@@ -73,5 +72,6 @@ private:
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
 	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
+	void inputThread(bool& cont);
 };
 #endif

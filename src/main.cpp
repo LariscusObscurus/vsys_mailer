@@ -11,13 +11,13 @@ void signalHandler(int s)
 
 int main(int argc, char *argv[])
 {
-	Server serv = Server(argv[1]); 
 	struct sigaction sa;
 	if(argc < 3) {
 		std::cout << "No Server Path and/or Portnumber given!" << std::endl;
 		return EXIT_FAILURE;
 	}
 
+	Server serv = Server(argv[1]);
 	std::cout << "Starting Server" << std::endl;
 	try
 	{
@@ -38,5 +38,6 @@ int main(int argc, char *argv[])
 
 	std::cout << "Listening..." << std::endl;
 	serv.Start();
+	waitpid(-1,0,0);
 	return EXIT_SUCCESS;
 }
