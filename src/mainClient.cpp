@@ -16,6 +16,8 @@
 #include <string>
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
+#include <vector>
 
 
 int main(int argc, char **argv){
@@ -32,10 +34,36 @@ int main(int argc, char **argv){
 
 	std::cout << "Connecting to Server" << std::endl;
 
+	
+	std::vector<std::string> lines = {
+        "---------------------------------",
+        "|                               |",
+        "|      TWMAILER v0.1.2          |",
+        "|      Schwarz/Wuerrer          |",
+        "|                               |",
+        "|                               |",
+        "|           Welcome!			 |",
+		"|		  Please Login:          |",
+        "|                               |",
+        "---------------------------------",
+    };
+    
+    for(int i = 0; i < lines.size(); ++i) {
+        std::cout << lines[i];
+        std::cout << std::endl;
+    }
+	
+	/*
+	LOGIN
+	cli.Recieve();
+	*/
 
 	std::string buffer;
 	std::string message;
-	//bzero((char *) &serv_addr, sizeof(serv_addr));
+	std::string file;
+	std::string filebuffer;
+
+	
 	int userOption;
 	bool check;
 	check = true;
@@ -59,6 +87,9 @@ int main(int argc, char **argv){
 			std::cout << "Bitte geben Sie die Nachricht ein:(max. 920 chars)";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
+			std::cout << "Wollen Sie einen Anhang hinzufügen?: /home/User/...";
+			std::getline(std::cin,filebuffer);			
+			file = filebuffer;
 			break;
 		case 2 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
@@ -96,10 +127,14 @@ int main(int argc, char **argv){
 		}
 		cli.Connect(hostname, port);
 		cli.SendMessage(message.c_str(),message.length());
+		if(userOption = 1){
+		cli.SendFile(file.c_str());		
+		file.clear();
+		}
 		message.clear();
 	}
 
-	//cli.ReadMessage();
+	//cli.Recieve();
 
 		return EXIT_SUCCESS;
 }

@@ -77,8 +77,37 @@ int Client::SendMessage(const char *message,int size)
 	int bytes_sent = send(m_sockfd, message, size, 0);
 		if(bytes_sent < 0){
 			printf("Send Error.");
-			return -1;
+		return -1;
 		}
 
 	return 0;
+}
+
+int Client::SendFile(const char *file)
+{
+				char* fs_name = file; // /home/veg4/Desktop/test.txt
+				char sockbuf[LENGTH]; 
+				FILE *fs = fopen(fs_name, "r");
+				if(fs == NULL)
+				{
+					printf("ERROR: File %s not found.\n", fs_name);
+					return -1;
+				}
+				bzero(sockbuf, LENGTH); 
+				int fs_block; 
+				while((fs_block = fread(sockbuf, sizeof(char), LENGTH, fs))>0)
+				{
+					if(send(m_sockfd, sockbuf, fs_block, 0) < 0)
+					{
+						printf("ERROR: Failed to send file %s.\n", fs_name);
+						break;
+					}
+					bzero(sockbuf, LENGTH);
+				}
+	return 0;
+}
+
+int Client::Login(const char *user, const char *pw)
+{
+
 }
