@@ -144,6 +144,11 @@ void Server::ChildProcess()
 	splitAttached(bufferVector,attachmentDelim);
 #ifdef _DEBUG
 	std::cout << "Message: " << m_message << std::endl;
+	std::cout << "Attachment Size: " << m_data.size() << std::endl;
+	for(auto& it: m_data) {
+		std::cout << it;
+	}
+	std::cout<< std::endl;
 #endif
 	try {
 		if(!strncmp("SEND", m_message.c_str(), 4)){
@@ -357,7 +362,7 @@ void Server::splitAttached(const std::vector<char> &buffer, const std::string &d
 		return;
 	}
 	m_message = std::string(buffer.begin(), splitLine);
-	std::move(splitLine, buffer.end(), std::back_inserter(m_data));
+	std::move(splitLine + delim.length(), buffer.end(), std::back_inserter(m_data));
 }
 
 void Server::readLogFile(const std::string& path)

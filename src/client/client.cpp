@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cerrno>
 #include <fstream>
+#include <iostream>
 
 
 
@@ -72,9 +73,9 @@ int Client::Connect (char* const server_hostname, const char* server_service)
 	return m_sockfd;
 }
 
-int Client::SendMessage(const char *message,int size)
+int Client::SendMessage(std::string message)
 {
-	int bytes_sent = send(m_sockfd, message, size, 0);
+	long bytes_sent = send(m_sockfd, message.c_str(), message.length(), 0);
 		if(bytes_sent < 0){
 			printf("Send Error.");
 		return -1;
@@ -83,27 +84,43 @@ int Client::SendMessage(const char *message,int size)
 	return 0;
 }
 
-int Client::SendFile(const char *file)
+
+int Client::SendMessage(std::string message, std::string fileName)
 {
-				char* fs_name = file; // /home/veg4/Desktop/test.txt
-				char sockbuf[LENGTH]; 
-				FILE *fs = fopen(fs_name, "r");
-				if(fs == NULL)
-				{
-					printf("ERROR: File %s not found.\n", fs_name);
-					return -1;
-				}
-				bzero(sockbuf, LENGTH); 
-				int fs_block; 
-				while((fs_block = fread(sockbuf, sizeof(char), LENGTH, fs))>0)
-				{
-					if(send(m_sockfd, sockbuf, fs_block, 0) < 0)
-					{
-						printf("ERROR: Failed to send file %s.\n", fs_name);
-						break;
-					}
-					bzero(sockbuf, LENGTH);
-				}
+	std::string fileContent;
+	if(ReadFile(fileName, fileContent) == -1) {
+		printf("ERROR: File %s not found.\n", fileName.c_str());
+		return -1;
+	}
+	message += attachmentDelim + fileContent;
+	std::cout << message << std::endl;
+	long bytes_sent = send(m_sockfd, message.c_str(), message.length(), 0);
+		if(bytes_sent < 0){
+			printf("Send Error.");
+		return -1;
+		}
+
+	return 0;
+}
+
+int Client::ReadFile(std::string fileName, std::string& out)
+{
+	std::fstream file;
+	file.open(fileName,std::ios::in|std::ios::binary|std::ios::ate);
+
+	if(!file.is_open())
+	{
+		file.close();
+		return -1;
+	} else {
+		auto size = file.tellg();
+		char *content = new char[size];
+		file.seekg(0,std::ios::beg);
+		file.read(content, size);
+		out = std::string(content);
+		delete[] content;
+	}
+	file.close();
 	return 0;
 }
 

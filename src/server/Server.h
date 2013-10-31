@@ -10,7 +10,7 @@ class Server
 	static const unsigned int pathLength = 256;
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
-	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!";
+	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!\n";
 
 	constexpr static const char * ldapServer = "ldap://ldap.technikum-wien.at:389";
 	constexpr static const char * ldapSearchBase = "dc=technikum-wien,dc=at";

@@ -1,7 +1,7 @@
-src/client.cpp
-src/client.h
-src/Conversion.h
-src/main.cpp
-src/mainClient.cpp
-src/Server.cpp
-src/Server.h
+src/client/client.cpp
+src/client/client.h
+src/client/main.cpp
+src/server/Conversion.h
+src/server/main.cpp
+src/server/Server.cpp
+src/server/Server.h

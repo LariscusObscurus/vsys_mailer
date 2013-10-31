@@ -34,25 +34,25 @@ int main(int argc, char **argv){
 
 	std::cout << "Connecting to Server" << std::endl;
 
-	
+
 	std::vector<std::string> lines = {
-        "---------------------------------",
-        "|                               |",
-        "|      TWMAILER v0.1.2          |",
-        "|      Schwarz/Wuerrer          |",
-        "|                               |",
-        "|                               |",
-        "|           Welcome!			 |",
+	"---------------------------------",
+	"|                               |",
+	"|      TWMAILER v0.1.2          |",
+	"|      Schwarz/Wuerrer          |",
+	"|                               |",
+	"|                               |",
+	"|           Welcome!			 |",
 		"|		  Please Login:          |",
-        "|                               |",
-        "---------------------------------",
+	"|                               |",
+	"---------------------------------",
     };
-    
+
     for(int i = 0; i < lines.size(); ++i) {
-        std::cout << lines[i];
-        std::cout << std::endl;
+	std::cout << lines[i];
+	std::cout << std::endl;
     }
-	
+
 	/*
 	LOGIN
 	cli.Recieve();
@@ -60,10 +60,9 @@ int main(int argc, char **argv){
 
 	std::string buffer;
 	std::string message;
-	std::string file;
-	std::string filebuffer;
+	std::string fileName;
 
-	
+
 	int userOption;
 	bool check;
 	check = true;
@@ -88,8 +87,7 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			std::cout << "Wollen Sie einen Anhang hinzufügen?: /home/User/...";
-			std::getline(std::cin,filebuffer);			
-			file = filebuffer;
+			std::getline(std::cin,fileName);
 			break;
 		case 2 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
@@ -126,12 +124,11 @@ int main(int argc, char **argv){
 			break;
 		}
 		cli.Connect(hostname, port);
-		cli.SendMessage(message.c_str(),message.length());
-		if(userOption = 1){
-		cli.SendFile(file.c_str());		
-		file.clear();
+		if(fileName.length() == 0) {
+			cli.SendMessage(message);
+		} else {
+			cli.SendMessage(message, fileName);
 		}
-		message.clear();
 	}
 
 	//cli.Recieve();
