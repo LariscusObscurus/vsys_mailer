@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include "Server.h"
+#include "ServerException.h"
 #include <signal.h>
 #include <sys/wait.h>
 
@@ -22,7 +23,7 @@ int main(int argc, char *argv[])
 	try
 	{
 		serv.Connect(NULL, argv[2]);
-	} catch(Server::ServerException ex)
+	} catch(const ServerException& ex)
 	{
 		std::cerr << ex.what() << std::endl;
 		return EXIT_FAILURE;

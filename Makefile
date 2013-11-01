@@ -10,7 +10,7 @@ CLIENT = Client
 CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -std=c++11 -DLDAP_DEPRECATED
 LFLAGS= -lldap -llber
 
-SERVSRC = src/server/main.cpp src/server/Server.cpp
+SERVSRC = src/server/main.cpp src/server/ServerException.cpp src/server/Server.cpp src/server/Ldap.cpp
 CLIENTSRC = src/client/client.cpp src/client/main.cpp
 
 OBJSERV = $(SERVSRC:.cpp=.o)

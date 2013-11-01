@@ -1,7 +1,6 @@
 #ifndef	SERVER_H
 #define SERVER_H
 
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -10,10 +9,10 @@ class Server
 	static const unsigned int pathLength = 256;
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
-	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!\n";
+	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
 
-	constexpr static const char * ldapServer = "ldap://ldap.technikum-wien.at:389";
-	constexpr static const char * ldapSearchBase = "dc=technikum-wien,dc=at";
+	constexpr static const char * const ldapServer = "ldap://ldap.technikum-wien.at:389";
+	constexpr static const char * const ldapSearchBase = "dc=technikum-wien,dc=at";
 
 	int m_sockfd;
 	int m_childfd;
@@ -24,15 +23,6 @@ class Server
 	std::vector<std::string> m_log;
 
 public:
-	class ServerException : public std::exception
-	{
-		const char* m_msg;
-		public:
-			ServerException(const char *msg);
-			virtual ~ServerException() throw();
-			virtual const char* what() const throw();
-	};
-
 	Server (const char *path);
 	virtual ~Server ();
 	/**
@@ -55,7 +45,7 @@ private:
 	void OnRecvLIST();
 	void OnRecvQUIT();
 	void sendERR();
-	void createDirectory(const char * dir);
+	void createDirectory(const char *dir);
 	void splitAttached(const std::vector<char>& buffer, const std::string& delim);
 	/**
 	 * split:

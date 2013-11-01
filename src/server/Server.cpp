@@ -1,7 +1,7 @@
-#define LDAP_DEPRECATED 1
-#include <ldap.h>
+#include "Ldap.h"
 #include "Server.h"
 #include "Conversion.h"
+#include "ServerException.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -173,67 +173,18 @@ void Server::ChildProcess()
 
 bool Server::OnRecvLOGIN()
 {
-	bool result = false;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
 
-	LDAP *ld,*ldAuth;
-	LDAPMessage *searchResult, *entry;
-	int rv;
-
-	char *dn = nullptr;
-	char * attribs[3];
-	std::string ldapFilter = "(uid=" + lines[1] + ")";
-
-
-	if((rv =ldap_initialize(&ld, ldapServer)) != LDAP_SUCCESS) {
-		sendERR();
-		std::cout << "LDAP-Error: Open" << std::endl;
-		std::cout << ldap_err2string(rv) << std::endl;
-		return false;
+	try {
+		Ldap ldapConnection(static_cast<const char * const>(ldapServer));
+		ldapConnection.bind("uid=if12b076,ou=people,dc=technikum-wien,dc=at", "");
+		return ldapConnection.authenticate(lines[1], lines[2], ldapSearchBase);
+	} catch(const ServerException& ex) {
+		std::cout << ex.what() << std::endl;
 	}
-	if(ldap_bind_s(ld, "uid=if12b076,ou=people,dc=technikum-wien,dc=at", "",LDAP_AUTH_SIMPLE) != LDAP_SUCCESS) {
-		sendERR();
-		std::cout << "LDAP-Error: Bind" << std::endl;
-		ldap_unbind(ld);
-		return false;
-	}
-
-	attribs[0] = strdup("uid");
-	attribs[1] = strdup("cn");
-	attribs[2] = nullptr;
-
-	if(ldap_search_s(ld, ldapSearchBase, LDAP_SCOPE_SUBTREE, ldapFilter.c_str(), attribs, 0, &searchResult) != LDAP_SUCCESS) {
-		sendERR();
-		std::cout << "LDAP-Error: Search" << std::endl;
-		free(attribs[0]);
-		free(attribs[1]);
-		if(searchResult != nullptr) ldap_msgfree(searchResult);
-		return false;
-	}
-
-	for(entry = ldap_first_entry(ld, searchResult); entry!= nullptr; entry = ldap_next_entry(ld, entry)) {
-		dn = ldap_get_dn(ld,entry);
-		if(dn != nullptr) {
-			std::cout << dn << std::endl;
-			ldap_initialize(&ldAuth,ldapServer);
-			rv = ldap_bind_s(ldAuth, dn, lines[2].c_str(), LDAP_AUTH_SIMPLE);
-			if(rv != 0) {
-				std::cout << "LOGIN FAILED" << std::endl;
-				std::cout << ldap_err2string(rv) << std::endl;
-			} else {
-				std::cout << "SUCCESSFULL LOGIN" << std::endl;
-				result= true;
-			}
-			ldap_unbind(ldAuth);
-		}
-	}
-	if(searchResult != nullptr) ldap_msgfree(searchResult);
-	if(dn != nullptr) free(dn);
-	free(attribs[0]);
-	free(attribs[1]);
-	ldap_unbind(ld);
-	return result;
+	sendERR();
+	return false;
 }
 
 void Server::OnRecvSEND()
@@ -248,8 +199,8 @@ void Server::OnRecvSEND()
 	std::string dir(m_path + "/" + lines[2] + "/");
 	try {
 	createDirectory(dir.c_str());
-	} catch(ServerException e) {
-		std::cerr << e.what() << std::endl;
+	} catch(const ServerException& ex) {
+		std::cerr << ex.what() << std::endl;
 	}
 
 	std::string logFile(dir + "log");
@@ -293,8 +244,9 @@ void Server::OnRecvREAD()
 
 	try {
 		msg = readMessage(dir);
-	} catch(ServerException) {
+	} catch(const ServerException& ex) {
 		sendERR();
+		std::cout << ex.what() << std::endl;
 	}
 	send(m_childfd, msg.c_str(), msg.size(), 0);
 	return;
@@ -458,22 +410,6 @@ void Server::rewriteLog(std::string& path) {
 		logStream << it << "\n";
 	}
 	logStream.close();
-}
-
-Server::ServerException::ServerException(const char*msg) :
-	m_msg(msg)
-{
-
-}
-
-Server::ServerException::~ServerException() throw()
-{
-
-}
-
-const char * Server::ServerException::what() const throw()
-{
-	return m_msg;
 }
 
 void Server::inputThread(bool& cont)
