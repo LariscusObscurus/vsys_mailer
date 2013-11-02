@@ -10,6 +10,8 @@ class Server
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
 	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
+	constexpr static const char * const ERR = "ERR\n";
+	constexpr static const char * const OK = "OK\n";
 
 	constexpr static const char * const ldapServer = "ldap://ldap.technikum-wien.at:389";
 	constexpr static const char * const ldapSearchBase = "dc=technikum-wien,dc=at";
@@ -17,8 +19,11 @@ class Server
 	int m_sockfd;
 	int m_childfd;
 	int m_messageCount;
+
 	std::string m_path;
 	std::string m_message;
+	char *m_cbuffer;
+	std::vector<char> m_buffer;
 	std::vector<char> m_data;
 	std::vector<std::string> m_log;
 
@@ -38,13 +43,16 @@ public:
 	int Connect (const char *node, const char *port);
 private:
 	void ChildProcess();
+	bool receiveLogin();
+	void receiveData();
+	bool socketAvailable(int fd);
 	bool OnRecvLOGIN();
 	void OnRecvSEND();
 	void OnRecvDEL();
 	void OnRecvREAD();
 	void OnRecvLIST();
 	void OnRecvQUIT();
-	void sendERR();
+	void sendMessage(const std::string& message);
 	void createDirectory(const char *dir);
 	void splitAttached(const std::vector<char>& buffer, const std::string& delim);
 	/**

@@ -3,6 +3,7 @@
 #include "Conversion.h"
 #include "ServerException.h"
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -16,16 +17,17 @@
 #include <iterator>
 #include <thread>
 #include <functional>
-#include <fcntl.h>
 
 Server::Server(const char *path) :
 	m_sockfd(-1),
 	m_path(path)
 {
+	m_cbuffer = new char[bufferSize];
 }
 
 Server::~Server()
 {
+	delete[] m_cbuffer;
 	close(m_sockfd);
 }
 
@@ -59,11 +61,6 @@ int Server::Connect (const char *node, const char *port)
 			throw ServerException("Server: setsockopt");
 		}
 
-		if(fcntl(m_sockfd, F_SETFL, O_NONBLOCK) != 0)
-		{
-			throw ServerException("Server: O_NONBLOCK");
-		}
-
 		if(bind(m_sockfd, servinfo->ai_addr, servinfo->ai_addrlen)) {
 			close(m_sockfd);
 			continue;
@@ -89,10 +86,15 @@ int Server::Start()
 	sockaddr_storage clientAddr;
 	socklen_t sinSize;
 	bool cont = true;
+
 	std::thread t1(&Server::inputThread,this,std::ref(cont));
 
 	while(cont) {
 		sinSize = sizeof(clientAddr);
+		if(!socketAvailable(m_sockfd)) {
+			usleep(500);
+			continue;
+		}
 		m_childfd = accept(m_sockfd,(sockaddr *)&clientAddr, &sinSize);
 		if(m_childfd == -1) {
 			continue;
@@ -111,37 +113,18 @@ int Server::Start()
 
 void Server::ChildProcess()
 {
-	long bytesReceived;
-	char *buf = new char[bufferSize];
-	std::vector<char> bufferVector;
-
-	const char * msg = "OK\n";
-
-	if(send(m_childfd, msg,strlen(msg), 0) == -1) {
-		delete[] buf;
-		return;
-	}
-	do {
-		errno = 0;
-		if((bytesReceived = recv(m_childfd,buf, bufferSize, MSG_DONTWAIT)) != -1) {
-			std::copy(buf, buf + bytesReceived, std::back_inserter<std::vector<char>>(bufferVector));
-		}
-		switch(errno) {
-		case 0:
-			break;
-		case EAGAIN:
-			bytesReceived = 0;
-			break;
-		default:
-			delete[] buf;
-			sendERR();
+	try {
+		if(!receiveLogin()) {
 			return;
 		}
-		memset(buf, 0, bufferSize);
-	} while(bytesReceived >= bufferSize -1);
-	delete[] buf;
+		sendMessage(OK);
+		receiveData();
+	} catch(const ServerException& ex) {
+		return;
+	}
 
-	splitAttached(bufferVector,attachmentDelim);
+
+	splitAttached(m_buffer, attachmentDelim);
 #ifdef _DEBUG
 	std::cout << "Message: " << m_message << std::endl;
 	std::cout << "Attachment Size: " << m_data.size() << std::endl;
@@ -153,8 +136,6 @@ void Server::ChildProcess()
 	try {
 		if(!strncmp("SEND", m_message.c_str(), 4)){
 			OnRecvSEND();
-		} else if(!strncmp("LOGIN", m_message.c_str(), 4)) {
-			OnRecvLOGIN();
 		} else if(!strncmp("READ", m_message.c_str(), 4)) {
 			OnRecvREAD();
 		} else if(!strncmp("LIST", m_message.c_str(), 4)) {
@@ -164,11 +145,90 @@ void Server::ChildProcess()
 		} else if(!strncmp("DEL", m_message.c_str(), 3)) {
 			OnRecvDEL();
 		} else {
-			sendERR();
+			sendMessage(ERR);
 		}
-	} catch(ServerException) {
-		sendERR();
+	} catch(const ServerException& ex) {
+		sendMessage(ERR);
+		std::cout << ex.what() << std::endl;
 	}
+}
+
+bool Server::receiveLogin()
+{
+	bool result = false;
+	for(int i = 3; i <= 3; i++) {
+		receiveData();
+		m_message = std::string(m_buffer.begin(), m_buffer.end());
+		if(m_message.substr(0,4).compare("LOGIN")) {
+			std::cout << m_message;
+			result = OnRecvLOGIN();
+		}
+		if(result == false) {
+			sendMessage(ERR);
+		} else {
+			return result;
+		}
+	}
+	return result;
+}
+
+void Server::receiveData()
+{
+	long bytesReceived = 0;
+
+	m_buffer.clear();
+	for(int i = 2; i <= 2; i++) {
+		do {
+			errno = 0;
+			if(!socketAvailable(m_childfd)) {
+				break;
+			}
+			if((bytesReceived = recv(m_childfd, m_cbuffer, bufferSize, 0)) != -1) {
+				std::copy(m_cbuffer, m_cbuffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
+			}
+			switch(errno) {
+			case 0:
+				break;
+			case EAGAIN:
+				bytesReceived = 0;
+				break;
+			default:
+				sendMessage(ERR);
+				throw ServerException(std::strerror(errno));
+				return;
+			}
+			memset(m_cbuffer, 0, bufferSize);
+		} while(bytesReceived >= (int)bufferSize -1);
+
+		if(m_buffer.size() == 0) {
+			sleep(3);
+			continue;
+		} else {
+			return;
+		}
+	}
+	sendMessage(ERR);
+	throw ServerException("Connection timed out");
+}
+
+bool Server::socketAvailable(int fd)
+{
+	bool result;
+	fd_set sready;
+	struct timeval nowait;
+
+	FD_ZERO(&sready);
+	FD_SET((unsigned int)fd, &sready);
+	memset((char *)&nowait,0,sizeof(nowait));
+
+	result = select(fd + 1, &sready, nullptr, nullptr, &nowait);
+	if( FD_ISSET(fd, &sready) ) {
+		result = true;
+	} else {
+		result = false;
+	}
+
+	return result;
 }
 
 bool Server::OnRecvLOGIN()
@@ -183,7 +243,7 @@ bool Server::OnRecvLOGIN()
 	} catch(const ServerException& ex) {
 		std::cout << ex.what() << std::endl;
 	}
-	sendERR();
+	sendMessage(ERR);
 	return false;
 }
 
@@ -230,7 +290,7 @@ void Server::OnRecvDEL()
 			return;
 		}
 	}
-	sendERR();
+	sendMessage(ERR);
 	return;
 }
 
@@ -245,7 +305,7 @@ void Server::OnRecvREAD()
 	try {
 		msg = readMessage(dir);
 	} catch(const ServerException& ex) {
-		sendERR();
+		sendMessage(ERR);
 		std::cout << ex.what() << std::endl;
 	}
 	send(m_childfd, msg.c_str(), msg.size(), 0);
@@ -274,11 +334,9 @@ void Server::OnRecvQUIT()
 	return;
 }
 
-void Server::sendERR()
+void Server::sendMessage(const std::string& message)
 {
-	const char * err = "ERR\n";
-
-	send(m_childfd, err, strlen(err), 0);
+	send(m_childfd, message.c_str(), message.length(), 0);
 	return;
 
 }
@@ -330,15 +388,8 @@ void Server::readLogFile(const std::string& path)
 		m_messageCount = 0;
 		return;
 	} else {
-		while(logFileStream.good()) {
-			/**
-			 * FIXME:
-			 * Whitespaces am Ende von logString entfernen
-			 */
-			char buf[100] = {};
-			logFileStream.read(&buf[0],100);
-			logString += buf;
-		}
+		logString = std::string (std::istreambuf_iterator<char>(logFileStream),
+			  std::istreambuf_iterator<char>());
 	}
 	logFileStream.close();
 	if(logString.size() > 0) {
