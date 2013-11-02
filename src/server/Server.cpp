@@ -113,18 +113,30 @@ int Server::Start()
 
 void Server::ChildProcess()
 {
+	std::vector<std::string> messages;
+	std::string delim = ".\n";
+
+	size_t pos = 0;
+
 	try {
+		receiveData();
+		splitAttached(m_buffer, attachmentDelim);
+
+		while((pos = m_message.find(delim)) != std::string::npos) {
+			messages.push_back(m_message.substr(0, pos));
+			m_message.erase(0,pos + delim.length());
+		}
+		m_message = messages[0];
 		if(!receiveLogin()) {
+			sendMessage(ERR);
 			return;
 		}
 		sendMessage(OK);
-		receiveData();
+		m_message = messages[1];
 	} catch(const ServerException& ex) {
 		return;
 	}
 
-
-	splitAttached(m_buffer, attachmentDelim);
 #ifdef _DEBUG
 	std::cout << "Message: " << m_message << std::endl;
 	std::cout << "Attachment Size: " << m_data.size() << std::endl;
@@ -156,18 +168,8 @@ void Server::ChildProcess()
 bool Server::receiveLogin()
 {
 	bool result = false;
-	for(int i = 3; i <= 3; i++) {
-		receiveData();
-		m_message = std::string(m_buffer.begin(), m_buffer.end());
-		if(m_message.substr(0,4).compare("LOGIN")) {
-			std::cout << m_message;
-			result = OnRecvLOGIN();
-		}
-		if(result == false) {
-			sendMessage(ERR);
-		} else {
-			return result;
-		}
+	if(m_message.substr(0,4).compare("LOGIN")) {
+		result = OnRecvLOGIN();
 	}
 	return result;
 }
@@ -175,8 +177,6 @@ bool Server::receiveLogin()
 void Server::receiveData()
 {
 	long bytesReceived = 0;
-
-	m_buffer.clear();
 	for(int i = 2; i <= 2; i++) {
 		do {
 			errno = 0;
@@ -235,7 +235,6 @@ bool Server::OnRecvLOGIN()
 {
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
-
 	try {
 		Ldap ldapConnection(static_cast<const char * const>(ldapServer));
 		ldapConnection.bind("uid=if12b076,ou=people,dc=technikum-wien,dc=at", "");
@@ -442,11 +441,9 @@ const std::string Server::readMessage(const std::string& path) const
 	std::fstream messageStream(path,std::ios::in);
 	if(!messageStream.is_open()) {
 		throw ServerException("readMessage");
-	}
-	while(messageStream.good()) {
-		char buf[100] = {};
-		messageStream.read(&buf[0],100);
-		message += buf;
+	} else {
+		message = std::string (std::istreambuf_iterator<char>(messageStream),
+			  std::istreambuf_iterator<char>());
 	}
 	messageStream.close();
 	return message;

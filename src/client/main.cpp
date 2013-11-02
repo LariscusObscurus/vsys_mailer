@@ -42,16 +42,16 @@ int main(int argc, char **argv){
 	"|      Schwarz/Wuerrer          |",
 	"|                               |",
 	"|                               |",
-	"|           Welcome!			 |",
-		"|		  Please Login:          |",
+	"|           Welcome!            |",
+	"|         Please Login:         |",
 	"|                               |",
 	"---------------------------------",
-    };
+	};
 
-    for(int i = 0; i < lines.size(); ++i) {
-	std::cout << lines[i];
-	std::cout << std::endl;
-    }
+	for(int i = 0; i < lines.size(); ++i) {
+		std::cout << lines[i];
+		std::cout << std::endl;
+	}
 
 	/*
 	LOGIN
@@ -61,11 +61,19 @@ int main(int argc, char **argv){
 	std::string buffer;
 	std::string message;
 	std::string fileName;
+	std::string loginMessage = "LOGIN \n";
 
 
 	int userOption;
 	bool check;
 	check = true;
+	std::cout << "Please Login: " << std::endl << "Username: ";
+	std::getline(std::cin,buffer);
+	loginMessage  += buffer + "\n";
+	std::cout << "Password: ";
+	std::getline(std::cin,buffer);
+	loginMessage  += buffer + "\n" + ".\n";
+	buffer.clear();
 	while (check)
 	{
 		std::cout << "Willkommen! Welche Operation wuerden Sie gerne ausfuehren? 1.SEND, 2.LIST, 3.READ, 4.DEL  0.Exit \n";
@@ -123,11 +131,18 @@ int main(int argc, char **argv){
 			std::cout << "Sie müssen eine Zahl zwischen 1 und 4 für die jeweilige Operation eingeben.";
 			break;
 		}
-		cli.Connect(hostname, port);
-		if(fileName.length() == 0) {
-			cli.SendMessage(message);
-		} else {
-			cli.SendMessage(message, fileName);
+		if(check ==true){
+			cli.Connect(hostname, port);
+			//std::cout << loginMessage << std::endl;
+			cli.SendMessage(loginMessage);
+			/*receive abfragen OK oder ERR*/
+			if(fileName.length() == 0) {
+				cli.SendMessage(message);
+			} else {
+				cli.SendMessage(message, fileName);
+			}
+			message.clear();
+			fileName.clear();
 		}
 	}
 
