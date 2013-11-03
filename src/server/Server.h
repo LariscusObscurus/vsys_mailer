@@ -10,6 +10,7 @@ class Server
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
 	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
+	constexpr static const char * const messageDelim = ".\n";
 	constexpr static const char * const ERR = "ERR\n";
 	constexpr static const char * const OK = "OK\n";
 
@@ -68,6 +69,7 @@ private:
 	void readLogFile(const std::string& path);
 	void writeLogFile(const std::string& path, const std::string& subject);
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
+	void writeData(const std::string& path);
 	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
 	void inputThread(bool& cont);
