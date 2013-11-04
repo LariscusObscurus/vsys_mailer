@@ -36,7 +36,7 @@ public:
 	 * 	Server beginnt am Socket zu horchen und akzeptiert Verbindungen.
 	 * 	Für jede akzeptierte Verbindung wird ein Kindprozess abgespalten.
 	 */
-	int Start ();
+	int Start (bool *run);
 	/**
 	 * Connect:
 	 * 	Erstellt Socket und bindet am angegebenen port

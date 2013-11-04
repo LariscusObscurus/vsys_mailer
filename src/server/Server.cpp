@@ -15,7 +15,6 @@
 #include <fstream>
 #include <algorithm>
 #include <iterator>
-#include <thread>
 #include <functional>
 
 Server::Server(const char *path) :
@@ -81,15 +80,12 @@ int Server::Connect (const char *node, const char *port)
 	return 0;
 }
 
-int Server::Start()
+int Server::Start(bool *run)
 {
 	sockaddr_storage clientAddr;
 	socklen_t sinSize;
-	bool cont = true;
 
-	std::thread t1(&Server::inputThread,this,std::ref(cont));
-
-	while(cont) {
+	while(*run) {
 		sinSize = sizeof(clientAddr);
 		if(!socketAvailable(m_sockfd)) {
 			usleep(500);
@@ -103,11 +99,10 @@ int Server::Start()
 			close(m_sockfd);
 			ChildProcess();
 			close(m_childfd);
-			_exit(0);
+			return 0;
 		}
 		close(m_childfd);
 	}
-	t1.join();
 	return 0;
 }
 
@@ -137,14 +132,6 @@ void Server::ChildProcess()
 		return;
 	}
 
-//#ifdef _DEBUG
-//	std::cout << "Message: " << m_message << std::endl;
-//	std::cout << "Attachment Size: " << m_data.size() << std::endl;
-//	for(auto& it: m_data) {
-//		std::cout << it;
-//	}
-//	std::cout<< std::endl;
-//#endif
 	try {
 		if(m_message.substr(0,3).compare("SEND")) {
 			OnRecvSEND();
@@ -475,11 +462,4 @@ void Server::rewriteLog(std::string& path) {
 		logStream << it << "\n";
 	}
 	logStream.close();
-}
-
-void Server::inputThread(bool& cont)
-{
-	std::string tmp;
-	std::getline(std::cin,tmp);
-	cont = false;
 }
