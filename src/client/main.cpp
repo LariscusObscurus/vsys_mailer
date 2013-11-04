@@ -34,49 +34,117 @@ int main(int argc, char **argv){
 
 	std::cout << "Connecting to Server" << std::endl;
 
-
-	std::vector<std::string> lines = {
-	"---------------------------------",
-	"|                               |",
-	"|      TWMAILER v0.1.2          |",
-	"|      Schwarz/Wuerrer          |",
-	"|                               |",
-	"|                               |",
-	"|           Welcome!            |",
-	"|         Please Login:         |",
-	"|                               |",
-	"---------------------------------",
-	};
-
-	for(int i = 0; i < lines.size(); ++i) {
-		std::cout << lines[i];
-		std::cout << std::endl;
-	}
-
-	/*
-	LOGIN
-	cli.Recieve();
-	*/
-
-	std::string buffer;
+	int login;
+        int userOption;
+        
+ 	bool useroptcheck;
+	useroptcheck = true;
+	bool logincheck;
+        logincheck = true;
+        
+        std::string user;
+        std::string loginerror;
+   	std::string buffer;
 	std::string message;
 	std::string fileName;
 	std::string loginMessage = "LOGIN \n";
+	std::string registerMessage = "REGISTER \n";
 
 
-	int userOption;
-	bool check;
-	check = true;
-	std::cout << "Please Login: " << std::endl << "Username: ";
-	std::getline(std::cin,buffer);
-	loginMessage  += buffer + "\n";
-	std::cout << "Password: ";
-	std::getline(std::cin,buffer);
-	loginMessage  += buffer + "\n" + ".\n";
-	buffer.clear();
-	while (check)
+        
+	std::vector<std::string> loginout = {
+        "\t\t~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+        "\t\t|----         TWMailer           ----|",
+        "\t\t~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+        "\t\t",
+        "\t\t",
+        "\t\t   .:::::::::::::::::::::::::::::::::.\n",
+        "\t\t   .::| 1.Login                   |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 2.Register                |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 0.Exit                    |::.",
+        "\t\t   .:::::::::::::::::::::::::::::::::.\n",
+	};
+
+	for(int i = 0; i < loginout.size(); ++i) {
+		std::cout << loginout[i];
+		std::cout << std::endl;
+	}
+   
+        while (logincheck = true){
+	switch(login)
+            {
+                    case 1:
+                    std::cout << "Username: ";
+                    std::getline(std::cin,buffer);
+                    user = buffer;
+                    loginMessage  += buffer + "\n";
+                    std::cout << "Password: ";
+                    std::getline(std::cin,buffer);
+                    loginMessage  += buffer + "\n" + ".\n";
+                    buffer.clear();
+                    break;
+
+                    case 2:
+     /*             
+                    std::cout << "Username: ";
+                    std::getline(std::cin,buffer);
+                    registerMessage  += buffer + "\n";
+                    std::cout << "Password: ";
+                    std::getline(std::cin,buffer);
+                    registerMessage  += buffer + "\n" + ".\n";
+                    buffer.clear();     
+    */
+                    std::cout <<"\n\n Feature isn't available yet!";
+                    break;
+
+                    case 0:
+                    std::cout <<"\n\nThank You For Using This Program....";
+                    logincheck = false;
+                    break;
+
+                    default:
+                    std::cout <<"\n\nInvalid Choice!";
+                    break;
+            }
+            if(logincheck == true){
+                     cli.SendMessage(loginMessage);
+                     /*receive abfragen OK oder ERR*/ 
+                     loginerror =  cli.ReceiveMessage();
+                     if (loginerror == "OK"){
+                         std::cout <<"Welcome " user "!";                     
+                         logincheck == false;
+                     }
+                     else if (loginerror == "ERR"){
+                          std::cout <<"Wrong Username/Password!";                   
+                          logincheck == true;               
+                     }           
+             }
+        }
+
+        std::vector<std::string> useroptout = {
+        "\t\t---------------------------------------",
+        "\t\t   .:::::::::::::::::::::::::::::::::.\n",
+        "\t\t   .::| 1.Send mail               |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 2.List mail               |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 3.Read mail               |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 4.Delete mail             |::.",
+        "\t\t   .::|                           |::.",
+        "\t\t   .::| 0.Exit                    |::.",
+        "\t\t   .:::::::::::::::::::::::::::::::::.\n",
+        "\tPlease Enter Your Choice by Choosing a Number {1-4} -> ",
+        };
+        
+	while (useroptcheck)
 	{
-		std::cout << "Willkommen! Welche Operation wuerden Sie gerne ausfuehren? 1.SEND, 2.LIST, 3.READ, 4.DEL  0.Exit \n";
+                for(int i = 0; i < useroptout.size(); ++i) {
+                        std::cout << useroptout[i];
+                        std::cout << std::endl;
+                }
 		std::cin >> userOption;
 		switch(userOption) {
 		case 1 :
@@ -125,17 +193,16 @@ int main(int argc, char **argv){
 			message += buffer + "\n" + ".\n";
 			break;
 		case 0 :
-			check = false;
+			useroptcheck = false;
+                        std::cout <<"\n\nThank You For Using This Program....";  
 			break;
 		default:
-			std::cout << "Sie müssen eine Zahl zwischen 1 und 4 für die jeweilige Operation eingeben.";
+                        std::cout <<"\n\nInvalid Choice!";
 			break;
 		}
-		if(check ==true){
+		if(useroptcheck == true){
 			cli.Connect(hostname, port);
 			//std::cout << loginMessage << std::endl;
-			cli.SendMessage(loginMessage);
-			/*receive abfragen OK oder ERR*/
 			if(fileName.length() == 0) {
 				cli.SendMessage(message);
 			} else {
@@ -145,8 +212,6 @@ int main(int argc, char **argv){
 			fileName.clear();
 		}
 	}
-
-	//cli.Recieve();
 
 		return EXIT_SUCCESS;
 }

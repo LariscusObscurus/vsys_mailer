@@ -124,7 +124,23 @@ int Client::ReadFile(std::string fileName, std::string& out)
 	return 0;
 }
 
-int Client::Login(const char *user, const char *pw)
+char Client::ReceiveMessage()
 {
-
+        ssize_t bytes_recieved;
+        char incoming_data_buffer[1000];
+        
+        bytes_recieved = recv(m_sockfd, incoming_data_buffer,1000, 0);
+        if (bytes_recieved == 0) 
+        {
+            std::cout << " " << std::endl ;
+        }
+        if (bytes_recieved == -1)
+        {
+            std::cout << "Recieve Error!" << std::endl ;
+        }
+	return incoming_data_buffer;
+        /*
+         TO-DO
+         * Exceptions
+         */
 }
