@@ -36,6 +36,8 @@ int main(int argc, char **argv){
 
 	int login;
         int userOption;
+        int count;
+        count = 0;
         
  	bool useroptcheck;
 	useroptcheck = true;
@@ -102,6 +104,7 @@ int main(int argc, char **argv){
                     case 0:
                     std::cout <<"\n\nThank You For Using This Program....";
                     logincheck = false;
+                    useroptcheck = false;
                     break;
 
                     default:
@@ -117,8 +120,17 @@ int main(int argc, char **argv){
                          logincheck == false;
                      }
                      else if (loginerror == "ERR"){
-                          std::cout <<"Wrong Username/Password!";                   
-                          logincheck == true;               
+                          if (count <= 3) 
+                          {
+                            std::cout <<"Wrong Username/Password!";                   
+                            logincheck == true;
+                            count = count + 1;
+                          }
+                          else if(count > 3){
+                            std::cout <<"There have been 3 failed login attempts.. your account now is blocked for 10 minutes!";
+                            logincheck == false;
+                            useroptcheck = false;
+                          }
                      }           
              }
         }
@@ -210,6 +222,7 @@ int main(int argc, char **argv){
 			}
 			message.clear();
 			fileName.clear();
+                        cli.ReceiveMessage();
 		}
 	}
 
