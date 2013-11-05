@@ -3,7 +3,7 @@ VERSION = 0
 PATCHLEVEL = 0
 SUBLEVEL = 1
 
-CC = g++
+CC = gcc
 SERV = Server
 CLIENT = Client
 
