@@ -14,7 +14,7 @@ public:
 	Client();
 	virtual ~Client();
 	int Connect (char* const server_hostname, const char* server_service);
-        int ReceiveMessage();
+        char ReceiveMessage();
 	int SendMessage(std::string message);
 	int SendMessage(std::string message, std::string fileName);
 	int Login(const char *user, const char *p);

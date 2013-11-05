@@ -139,8 +139,4 @@ char Client::ReceiveMessage()
             std::cout << "Recieve Error!" << std::endl ;
         }
 	return incoming_data_buffer;
-        /*
-         TO-DO
-         * Exceptions
-         */
 }

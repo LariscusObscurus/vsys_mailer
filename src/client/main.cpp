@@ -51,6 +51,8 @@ int main(int argc, char **argv){
 	std::string fileName;
 	std::string loginMessage = "LOGIN \n";
 	std::string registerMessage = "REGISTER \n";
+        std::string useroptout;
+        std::string loginout;
 
 
         
@@ -116,7 +118,7 @@ int main(int argc, char **argv){
                      /*receive abfragen OK oder ERR*/ 
                      loginerror =  cli.ReceiveMessage();
                      if (loginerror == "OK"){
-                         std::cout <<"Welcome " user "!";                     
+                         std::cout <<"Welcome!";                     
                          logincheck == false;
                      }
                      else if (loginerror == "ERR"){
