@@ -19,7 +19,9 @@
 
 Server::Server(const char *path) :
 	m_sockfd(-1),
-	m_path(path)
+	m_loggedIn(false),
+	m_path(path),
+	m_currentMessageType(NONE)
 {
 	m_cbuffer = new char[bufferSize];
 }
@@ -108,94 +110,81 @@ int Server::Start(bool *run)
 
 void Server::ChildProcess()
 {
-	std::vector<std::string> messages;
-
-	size_t pos = 0;
-
+	int i;
+	m_bufferVector = std::vector<char>(4096);
 	try {
 		receiveData();
-		splitAttached(m_buffer, attachmentDelim);
+		while(true) {
+			determineMessageType();
+			if(m_currentMessageType != ATT) {
+				for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
+					if(splitMessage()) {
+						break;
+					}
+					receiveData();
+				}
+			} else {
+				for(i = 0; i <= 5000; i++) {
+					if(splitAttached()) {
+						break;
+					}
+					receiveData();
+				}
 
-		while((pos = m_message.find(messageDelim)) != std::string::npos) {
-			messages.push_back(m_message.substr(0, pos));
-			m_message.erase(0,pos + strlen(messageDelim));
-		}
+			}
+			if(i == 5000) { throw ServerException("Message size exceeded"); }
 
-		m_message = messages[0];
-		if(!receiveLogin()) {
-			sendMessage(ERR);
-			return;
+			switch (m_currentMessageType) {
+			case LOGIN:
+				m_loggedIn = OnRecvLOGIN();
+				break;
+			case SEND:
+				OnRecvSEND();
+				break;
+			case ATT:
+				OnRecvATT();
+				break;
+			case READ:
+				OnRecvREAD();
+				break;
+			case DEL:
+				OnRecvDEL();
+				break;
+			case LIST:
+				OnRecvLIST();
+				break;
+			case QUIT:
+				return;
+			default:
+				sendMessage(ERR);
+				break;
+			}
+			m_message.clear();
 		}
-		sendMessage(OK);
-		m_message = messages[1];
-	} catch(const ServerException& ex) {
-		return;
 	}
-
-	try {
-		if(m_message.substr(0,3).compare("SEND")) {
-			OnRecvSEND();
-		} else if(m_message.substr(0,3).compare("READ")) {
-			OnRecvREAD();
-		} else if(m_message.substr(0,3).compare("LIST")) {
-			OnRecvLIST();
-		} else if(m_message.substr(0,3).compare("QUIT")) {
-			OnRecvQUIT();
-		} else if(m_message.substr(0,2).compare("DEL")) {
-			OnRecvDEL();
-		} else {
-			sendMessage(ERR);
-		}
-	} catch(const ServerException& ex) {
+	catch(const ServerException& ex) {
 		sendMessage(ERR);
 		std::cout << ex.what() << std::endl;
 	}
 }
 
-bool Server::receiveLogin()
-{
-	if(m_message.substr(0,4).compare("LOGIN")) {
-		return OnRecvLOGIN();
-	}
-	return false;
-}
-
 void Server::receiveData()
 {
 	long bytesReceived = 0;
-	for(int i = 2; i <= 2; i++) {
-		do {
-			errno = 0;
-			if(!socketAvailable(m_childfd)) {
-				break;
-			}
-			if((bytesReceived = recv(m_childfd, m_cbuffer, bufferSize, 0)) != -1) {
-				std::copy(m_cbuffer, m_cbuffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
-			}
-			switch(errno) {
-			case 0:
-				break;
-			case EAGAIN:
-				bytesReceived = 0;
-				break;
-			default:
-				sendMessage(ERR);
-				throw ServerException(std::strerror(errno));
-				return;
-			}
-			memset(m_cbuffer, 0, bufferSize);
-			std::cout << bytesReceived << std::endl;
-		} while(bytesReceived >= (int)bufferSize -1);
+	errno = 0;
 
-		if(m_buffer.size() == 0) {
-			sleep(3);
-			continue;
-		} else {
-			return;
-		}
+	memset(m_cbuffer, 0, bufferSize);
+
+	if((bytesReceived = recv(m_childfd, m_cbuffer, bufferSize, 0)) != -1) {
+		std::copy(m_cbuffer, m_cbuffer + bytesReceived, std::back_inserter<std::vector<char>>(m_bufferVector));
 	}
-	sendMessage(ERR);
-	throw ServerException("Connection timed out");
+
+	switch(errno) {
+	case 0:
+		return;
+	default:
+		throw ServerException(std::strerror(errno));
+	}
 }
 
 bool Server::socketAvailable(int fd)
@@ -218,6 +207,58 @@ bool Server::socketAvailable(int fd)
 	return result;
 }
 
+void Server::determineMessageType()
+{
+	std::string header(m_bufferVector.begin(), m_bufferVector.begin() + 5);
+	if(!header.substr(0,5).compare("LOGIN")) {
+		m_currentMessageType = LOGIN;
+	} else if(!header.substr(0,4).compare("SEND")) {
+		m_currentMessageType = SEND;
+	} else if(!header.substr(0,4).compare("READ")) {
+		m_currentMessageType = READ;
+	} else if(!header.substr(0,4).compare("LIST")) {
+		m_currentMessageType = LIST;
+	} else if(!header.substr(0,4).compare("QUIT")) {
+		m_currentMessageType = QUIT;
+	} else if(!header.substr(0,3).compare("DEL")) {
+		m_currentMessageType = DEL;
+	} else if(!header.substr(0,3).compare("ATT")) {
+		m_currentMessageType = ATT;
+	} else {
+		sendMessage(ERR);
+		std::cout << header << std::endl;
+		m_bufferVector.clear();
+		throw ServerException("Received invalid Message");
+	}
+}
+
+bool Server::splitMessage()
+{
+	size_t delimSize = strlen(messageDelim);
+	std::vector<char>::iterator delimPos = std::search(m_bufferVector.begin(), m_bufferVector.end(), messageDelim, messageDelim + delimSize);
+		if(delimPos != m_bufferVector.end()) {
+			m_message = std::string(m_bufferVector.begin(), delimPos + delimSize);
+			m_bufferVector.erase(m_bufferVector.begin(),delimPos + delimSize);
+			return true;
+		}
+
+	return false;
+}
+
+bool Server::splitAttached()
+{
+
+	size_t delimSize = strlen(attachmentDelim);
+	std::vector<char>::iterator delimPos = std::search(m_bufferVector.begin(), m_bufferVector.end(), attachmentDelim, attachmentDelim + delimSize);
+	if(delimPos != m_bufferVector.end()) {
+		std::cout << "Ende gefunden" << std::endl;
+		std::move(m_bufferVector.begin() + strlen("ATT"), m_bufferVector.end() - delimSize, std::back_inserter(m_data));
+		m_bufferVector.erase(m_bufferVector.begin(),delimPos + delimSize);
+		return true;
+	}
+	return false;
+}
+
 bool Server::OnRecvLOGIN()
 {
 	std::vector<std::string> lines;
@@ -235,6 +276,7 @@ bool Server::OnRecvLOGIN()
 
 void Server::OnRecvSEND()
 {
+	if(!m_loggedIn) {return;}
 	std::vector<std::string> lines;
 
 	split(m_message, "\n", lines);
@@ -242,26 +284,41 @@ void Server::OnRecvSEND()
 	/**
 	 * USER directory erstellen
 	 */
-	std::string dir(m_path + "/" + lines[2] + "/");
+	m_curUserPath = std::string(m_path + "/" + lines[2] + "/");
 	try {
-	createDirectory(dir.c_str());
+		createDirectory(m_curUserPath.c_str());
 	} catch(const ServerException& ex) {
 		std::cerr << ex.what() << std::endl;
 	}
 
-	std::string logFile(dir + "log");
+	std::string logFile(m_curUserPath + "log");
 	readLogFile(logFile);
-	writeMessage(dir + numberToString<int>(++m_messageCount), lines);
-	if(m_data.size() != 0) {
-		writeData(dir + numberToString<int>(m_messageCount) + "_data");
-	}
+	writeMessage(m_curUserPath + numberToString<int>(++m_messageCount), lines);
 	writeLogFile(logFile, lines[3]);
 
 	return;
 }
 
+void Server::OnRecvATT()
+{
+	std::ofstream dataStream(m_curUserPath + numberToString<int>(m_messageCount) + "_data",
+		std::ios::out|std::ios::binary|std::ios::trunc);
+
+	if(!dataStream.is_open()) {
+		throw ServerException("writeData: Could not open file");
+	}
+	try {
+		dataStream.write(reinterpret_cast<char*>(&m_data[0]), m_data.size());
+	} catch(std::fstream::failure ex) {
+		std::cout << ex.what() << std::endl;
+		throw ServerException("writeData: Could not write file");
+	}
+	return;
+}
+
 void Server::OnRecvDEL()
 {
+	if(!m_loggedIn) {return;}
 	std::string msg;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
@@ -285,6 +342,7 @@ void Server::OnRecvDEL()
 
 void Server::OnRecvREAD()
 {
+	if(!m_loggedIn) {return;}
 	std::string msg;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
@@ -303,6 +361,8 @@ void Server::OnRecvREAD()
 
 void Server::OnRecvLIST()
 {
+	if(!m_loggedIn) {return;}
+
 	std::string msg;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
@@ -316,10 +376,6 @@ void Server::OnRecvLIST()
 		msg += tmp[1] + "\n";
 	}
 	send(m_childfd, msg.c_str(), msg.size(), 0);
-	return;
-}
-void Server::OnRecvQUIT()
-{
 	return;
 }
 
@@ -351,17 +407,6 @@ void Server::split(const std::string& str, const std::string& delim, std::vector
 		lastPos = str.find_first_not_of(delim, pos);
 		pos = str.find_first_of(delim, lastPos);
 	}
-}
-
-void Server::splitAttached(const std::vector<char> &buffer, const std::string &delim)
-{
-	auto splitLine = std::search(buffer.begin(), buffer.end(), delim.begin(), delim.end());
-	if(splitLine == buffer.end()) {
-		m_message = std::string(buffer.begin(), buffer.end());
-		return;
-	}
-	m_message = std::string(buffer.begin(), splitLine);
-	std::move(splitLine + delim.length(), buffer.end(), std::back_inserter(m_data));
 }
 
 void Server::readLogFile(const std::string& path)
@@ -423,20 +468,6 @@ void Server::writeMessage(const std::string& path, const std::vector<std::string
 		messageStream << it << "\n";
 	}
 	messageStream.close();
-}
-
-void Server::writeData(const std::string& path)
-{
-	std::ofstream dataStream(path, std::ios::out|std::ios::binary|std::ios::trunc);
-	if(!dataStream.is_open()) {
-		throw ServerException("writeData: Could not open file");
-	}
-	try {
-		dataStream.write(reinterpret_cast<char*>(&m_data[0]), m_data.size());
-	} catch(std::fstream::failure ex) {
-		std::cout << ex.what() << std::endl;
-		throw ServerException("writeData: Could not write file");
-	}
 }
 
 const std::string Server::readMessage(const std::string& path) const

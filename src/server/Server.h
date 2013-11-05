@@ -20,13 +20,27 @@ class Server
 	int m_sockfd;
 	int m_childfd;
 	int m_messageCount;
+	bool m_loggedIn;
 
 	std::string m_path;
+	std::string m_curUserPath;
 	std::string m_message;
 	char *m_cbuffer;
-	std::vector<char> m_buffer;
+	std::vector<char> m_bufferVector;
 	std::vector<char> m_data;
+	std::vector<std::string> parsedMessages;
 	std::vector<std::string> m_log;
+
+	enum MessageType {
+		NONE,
+		LOGIN,
+		SEND,
+		DEL,
+		READ,
+		LIST,
+		ATT,
+		QUIT
+	}m_currentMessageType;
 
 public:
 	Server (const char *path);
@@ -44,18 +58,20 @@ public:
 	int Connect (const char *node, const char *port);
 private:
 	void ChildProcess();
-	bool receiveLogin();
 	void receiveData();
 	bool socketAvailable(int fd);
 	bool OnRecvLOGIN();
 	void OnRecvSEND();
+	void OnRecvATT();
 	void OnRecvDEL();
 	void OnRecvREAD();
 	void OnRecvLIST();
 	void OnRecvQUIT();
 	void sendMessage(const std::string& message);
 	void createDirectory(const char *dir);
-	void splitAttached(const std::vector<char>& buffer, const std::string& delim);
+	void determineMessageType();
+	bool splitMessage();
+	bool splitAttached();
 	/**
 	 * split:
 	 * 	string anhand der angegebenen Trennzeichen aufteilen
@@ -69,7 +85,6 @@ private:
 	void readLogFile(const std::string& path);
 	void writeLogFile(const std::string& path, const std::string& subject);
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
-	void writeData(const std::string& path);
 	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
 	void inputThread(bool& cont);
