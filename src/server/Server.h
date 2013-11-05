@@ -1,6 +1,7 @@
 #ifndef	SERVER_H
 #define SERVER_H
 
+#include <arpa/inet.h>
 #include <string>
 #include <vector>
 
@@ -26,7 +27,8 @@ class Server
 	std::string m_curUserPath;
 	std::string m_message;
 	char *m_cbuffer;
-	std::vector<char> m_bufferVector;
+	char m_clientIp[INET6_ADDRSTRLEN];
+	std::vector<char> m_buffer;
 	std::vector<char> m_data;
 	std::vector<std::string> parsedMessages;
 	std::vector<std::string> m_log;
@@ -41,6 +43,12 @@ class Server
 		ATT,
 		QUIT
 	}m_currentMessageType;
+
+	struct MsgBuf {
+		long mtype;
+		char blacklisted[INET6_ADDRSTRLEN];
+	};
+	int m_msqId;
 
 public:
 	Server (const char *path);
@@ -87,6 +95,6 @@ private:
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
 	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
-	void inputThread(bool& cont);
+	void *get_in_addr(struct sockaddr *sa);
 };
 #endif

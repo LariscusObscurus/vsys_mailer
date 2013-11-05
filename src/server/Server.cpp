@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/msg.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <cstdlib>
@@ -86,8 +87,24 @@ int Server::Start(bool *run)
 {
 	sockaddr_storage clientAddr;
 	socklen_t sinSize;
+	std::vector<char*> blackList;
+	MsgBuf blockCandidate;
+	key_t key = ftok("Server", 'a');
+	m_msqId = msgget(key, 0600 | IPC_CREAT);
 
 	while(*run) {
+		bool updateBlacklist = true;
+		do {
+			errno = 0;
+			if(msgrcv(m_msqId, &blockCandidate, sizeof(MsgBuf) - sizeof(long), 0, IPC_NOWAIT) != -1) {
+				blackList.push_back(blockCandidate.blacklisted);
+			} else if(errno == ENOMSG) {
+				updateBlacklist = false;
+			} else {
+				std::cout << std::strerror(errno) << std::endl;
+			}
+		} while(updateBlacklist);
+
 		sinSize = sizeof(clientAddr);
 		if(!socketAvailable(m_sockfd)) {
 			usleep(500);
@@ -97,8 +114,10 @@ int Server::Start(bool *run)
 		if(m_childfd == -1) {
 			continue;
 		}
+		inet_ntop(clientAddr.ss_family, get_in_addr((struct sockaddr*)&clientAddr),m_clientIp, sizeof(m_clientIp));
 		if(!fork()) {
 			close(m_sockfd);
+			std::cout << m_clientIp << std::endl;
 			ChildProcess();
 			close(m_childfd);
 			return 0;
@@ -111,10 +130,9 @@ int Server::Start(bool *run)
 void Server::ChildProcess()
 {
 	int i;
-	m_bufferVector = std::vector<char>(4096);
 	try {
-		receiveData();
 		while(true) {
+			receiveData();
 			determineMessageType();
 			if(m_currentMessageType != ATT) {
 				for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
@@ -136,7 +154,9 @@ void Server::ChildProcess()
 
 			switch (m_currentMessageType) {
 			case LOGIN:
-				m_loggedIn = OnRecvLOGIN();
+				for(int i = 0; i <= 2; i++) {
+					m_loggedIn = OnRecvLOGIN();
+				}
 				break;
 			case SEND:
 				OnRecvSEND();
@@ -176,7 +196,7 @@ void Server::receiveData()
 	memset(m_cbuffer, 0, bufferSize);
 
 	if((bytesReceived = recv(m_childfd, m_cbuffer, bufferSize, 0)) != -1) {
-		std::copy(m_cbuffer, m_cbuffer + bytesReceived, std::back_inserter<std::vector<char>>(m_bufferVector));
+		std::copy(m_cbuffer, m_cbuffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
 	}
 
 	switch(errno) {
@@ -209,11 +229,14 @@ bool Server::socketAvailable(int fd)
 
 void Server::determineMessageType()
 {
-	std::string header(m_bufferVector.begin(), m_bufferVector.begin() + 5);
+	if(m_buffer.empty()) {return;}
+	std::string header(m_buffer.begin(), m_buffer.begin() + 5);
 	if(!header.substr(0,5).compare("LOGIN")) {
 		m_currentMessageType = LOGIN;
+		std::cout << "LOGIN RECEIVED" << std::endl;
 	} else if(!header.substr(0,4).compare("SEND")) {
 		m_currentMessageType = SEND;
+		std::cout << "SEND RECEIVED" << std::endl;
 	} else if(!header.substr(0,4).compare("READ")) {
 		m_currentMessageType = READ;
 	} else if(!header.substr(0,4).compare("LIST")) {
@@ -227,7 +250,7 @@ void Server::determineMessageType()
 	} else {
 		sendMessage(ERR);
 		std::cout << header << std::endl;
-		m_bufferVector.clear();
+		m_buffer.clear();
 		throw ServerException("Received invalid Message");
 	}
 }
@@ -235,10 +258,11 @@ void Server::determineMessageType()
 bool Server::splitMessage()
 {
 	size_t delimSize = strlen(messageDelim);
-	std::vector<char>::iterator delimPos = std::search(m_bufferVector.begin(), m_bufferVector.end(), messageDelim, messageDelim + delimSize);
-		if(delimPos != m_bufferVector.end()) {
-			m_message = std::string(m_bufferVector.begin(), delimPos + delimSize);
-			m_bufferVector.erase(m_bufferVector.begin(),delimPos + delimSize);
+	auto delimPos = std::search(m_buffer.begin(), m_buffer.end(), messageDelim, messageDelim + delimSize);
+		if(delimPos != m_buffer.end()) {
+			m_message = std::string(m_buffer.begin(), delimPos + delimSize);
+			std::cout << m_message << std::endl;
+			m_buffer.erase(m_buffer.begin(),delimPos + delimSize);
 			return true;
 		}
 
@@ -249,11 +273,11 @@ bool Server::splitAttached()
 {
 
 	size_t delimSize = strlen(attachmentDelim);
-	std::vector<char>::iterator delimPos = std::search(m_bufferVector.begin(), m_bufferVector.end(), attachmentDelim, attachmentDelim + delimSize);
-	if(delimPos != m_bufferVector.end()) {
+	auto delimPos = std::search(m_buffer.begin(), m_buffer.end(), attachmentDelim, attachmentDelim + delimSize);
+	if(delimPos != m_buffer.end()) {
 		std::cout << "Ende gefunden" << std::endl;
-		std::move(m_bufferVector.begin() + strlen("ATT"), m_bufferVector.end() - delimSize, std::back_inserter(m_data));
-		m_bufferVector.erase(m_bufferVector.begin(),delimPos + delimSize);
+		std::move(m_buffer.begin() + strlen("ATT"), m_buffer.end() - delimSize, std::back_inserter(m_data));
+		m_buffer.erase(m_buffer.begin(),delimPos + delimSize);
 		return true;
 	}
 	return false;
@@ -266,7 +290,11 @@ bool Server::OnRecvLOGIN()
 	try {
 		Ldap ldapConnection(static_cast<const char * const>(ldapServer));
 		ldapConnection.bind("uid=if12b076,ou=people,dc=technikum-wien,dc=at", "");
-		return ldapConnection.authenticate(lines[1], lines[2], ldapSearchBase);
+		if(ldapConnection.authenticate(lines[1], lines[2], ldapSearchBase)) {
+			sendMessage(OK);
+			return true;
+		}
+		return false;
 	} catch(const ServerException& ex) {
 		std::cout << ex.what() << std::endl;
 	}
@@ -309,7 +337,7 @@ void Server::OnRecvATT()
 	}
 	try {
 		dataStream.write(reinterpret_cast<char*>(&m_data[0]), m_data.size());
-	} catch(std::fstream::failure ex) {
+	} catch(const std::fstream::failure& ex) {
 		std::cout << ex.what() << std::endl;
 		throw ServerException("writeData: Could not write file");
 	}
@@ -319,7 +347,6 @@ void Server::OnRecvATT()
 void Server::OnRecvDEL()
 {
 	if(!m_loggedIn) {return;}
-	std::string msg;
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
 
@@ -431,7 +458,6 @@ void Server::readLogFile(const std::string& path)
 		std::string lastLine(m_log[m_log.size() - 1]);
 		std::string number(lastLine.substr(0, lastLine.find_first_of(";")));
 		m_messageCount = stringToNumber<int>(number);
-
 	} else {
 		m_messageCount = 0;
 	}
@@ -493,4 +519,12 @@ void Server::rewriteLog(std::string& path) {
 		logStream << it << "\n";
 	}
 	logStream.close();
+}
+
+void *Server::get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+	return nullptr;
 }
