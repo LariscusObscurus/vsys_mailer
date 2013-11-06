@@ -98,6 +98,7 @@ int Server::Start(bool *run)
 		do {
 			errno = 0;
 			if(msgrcv(msqId, &blockCandidate, sizeof(MsgBuf) - sizeof(long), 0, IPC_NOWAIT) != -1) {
+				std::cout << "Client banned" << std::endl;
 				BlackListEntry tmp;
 				tmp.time = time(nullptr);
 				strncpy(tmp.blacklisted, blockCandidate.blacklisted, INET6_ADDRSTRLEN);
@@ -123,7 +124,7 @@ int Server::Start(bool *run)
 
 		blackList.erase(std::remove_if(blackList.begin(), blackList.end(), 
 			[](const BlackListEntry& entry) { 
-				return (entry.time + 30 < time(nullptr));
+				return (entry.time + timeBanned < time(nullptr));
 			}
 		), blackList.end());
 
@@ -169,12 +170,13 @@ void Server::ChildProcess()
 			case LOGIN:
 				m_loggedIn = OnRecvLOGIN();
 				logInCount++;
-				if(!m_loggedIn && (logInCount ==2)) {
+				if(!m_loggedIn && (logInCount ==3)) {
 					blacklistSend();
 				}
 				break;
 			case SEND:
 				OnRecvSEND();
+				sendMessage(OK);
 				break;
 			case ATT:
 				OnRecvATT();
@@ -340,7 +342,6 @@ void Server::OnRecvSEND()
 	readLogFile(logFile);
 	writeMessage(m_curUserPath + numberToString<int>(++m_messageCount), lines);
 	writeLogFile(logFile, lines[3]);
-
 	return;
 }
 

@@ -20,6 +20,7 @@ public:
 	int Login(const char *user, const char *p);
 	bool splitMessage();
 	void receiveData();
+	void receiveData(int amount);
 	int checkOK();
 	void printMessage();
 private:

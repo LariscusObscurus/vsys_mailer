@@ -10,7 +10,7 @@ class Server
 	static const unsigned int pathLength = 256;
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
-	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
+	static const unsigned int timeBanned = 30;
 	constexpr static const char * const messageDelim = ".\n";
 	constexpr static const char * const ERR = "ERR\n.\n";
 	constexpr static const char * const OK = "OK\n.\n";

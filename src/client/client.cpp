@@ -153,17 +153,34 @@ void Client::receiveData()
 	delete[] buffer;
 }
 
+void Client::receiveData(int amount)
+{
+	long bytesReceived = 0;
+	errno = 0;
+	char *buffer = new char[amount];
+	memset(buffer, 0, amount);
+
+	if((bytesReceived = recv(m_sockfd, buffer, amount, 0)) != -1) {
+		std::copy(buffer, buffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
+	}
+	delete[] buffer;
+}
+
 int Client::checkOK() {
+	m_buffer.clear();
+	receiveData(5);
 	std::cout << &m_buffer[0];
 	if(!strncmp(&m_buffer[0],"OK\n", 2)) {
 		m_buffer.clear();
 		return 1;
-	} else if(!strncmp(&m_buffer[0],"ERR\n", 3)) {
-		m_buffer.clear();
-		return 0;
 	} else {
-		return -1;
+		receiveData(1);
+		if(!strncmp(&m_buffer[0],"ERR\n", 3)) {
+			m_buffer.clear();
+			return 0;
+		}
 	}
+	return 0;
 }
 
 void Client::printMessage()

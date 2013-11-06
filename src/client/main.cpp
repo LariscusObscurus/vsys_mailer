@@ -93,7 +93,7 @@ int main(int argc, char **argv){
 		if(cli.SendMessage(loginMessage) == -1) {
 			std::cout << "Could not Login to Server" << std::endl;
 		}
-		cli.receiveData();
+		//cli.receiveData();
 
 		int rv;
 		if((rv = cli.checkOK())) {
@@ -182,6 +182,13 @@ int main(int argc, char **argv){
 				cli.receiveData();
 				cli.printMessage();
 				needData = false;
+			} else {
+				if(cli.checkOK() == 0) {
+					std::cout << "Fehler beim versenden der Nachricht" << std::endl;
+				} else {
+					std::cout << "Nachricht versendet" << std::endl;
+				}
+
 			}
 			message.clear();
 			fileName.clear();
