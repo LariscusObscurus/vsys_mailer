@@ -154,15 +154,24 @@ void Client::receiveData()
 }
 
 int Client::checkOK() {
-	splitMessage();
-	if(!m_message.compare("OK\n")) {
-		m_message.clear();
+	std::cout << &m_buffer[0];
+	if(!strncmp(&m_buffer[0],"OK\n", 2)) {
+		m_buffer.clear();
 		return 1;
-	} else if(!m_message.compare("ERR\n")) {
-		m_message.clear();
+	} else if(!strncmp(&m_buffer[0],"ERR\n", 3)) {
+		m_buffer.clear();
 		return 0;
 	} else {
 		return -1;
 	}
 }
 
+void Client::printMessage()
+{
+	splitMessage();
+	std::cout << "--------ANSWER--------" << std::endl;
+
+	std::cout << m_message << std::endl;
+	std::cout << "--------ANSWER--------" << std::endl;
+
+}

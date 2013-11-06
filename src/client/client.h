@@ -21,6 +21,7 @@ public:
 	bool splitMessage();
 	void receiveData();
 	int checkOK();
+	void printMessage();
 private:
 	int ReadFile(std::string fileName, std::vector<unsigned char> &out);
 };

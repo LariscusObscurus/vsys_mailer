@@ -48,7 +48,7 @@ int main(int argc, char **argv){
 	"---------------------------------",
 	};
 
-	for(int i = 0; i < lines.size(); ++i) {
+	for(int i = 0; i < (int)lines.size(); ++i) {
 		std::cout << lines[i];
 		std::cout << std::endl;
 	}
@@ -61,40 +61,45 @@ int main(int argc, char **argv){
 	std::string buffer;
 	std::string message;
 	std::string fileName;
-	std::string loginMessage = "LOGIN \n";
 
 
 	int userOption;
-	bool check;
-	check = false;
-	std::cout << "Please Login: " << std::endl << "Username: ";
-	std::getline(std::cin,buffer);
-	loginMessage  += buffer + "\n";
-	//std::cout << "Password: ";
-	char * tmp = getpass("Password: ");
-	buffer = std::string(tmp);
-	free(tmp);
-	//std::getline(std::cin,buffer);
-	loginMessage  += buffer + "\n" + ".\n";
-	buffer.clear();
-	if(cli.Connect(hostname, port) == -1) {
-		std::cout << "Could not connect to Server" << std::endl;
-	}
-	if(cli.SendMessage(loginMessage) == -1) {
-		std::cout << "Could not Login to Server" << std::endl;
-	}
-	cli.receiveData();
+	bool check = false, needData = false;
 	for(int i = 0; i <= 2; i++) {
-		if(cli.checkOK()) {
+		std::string loginMessage = "LOGIN \n";
+		std::cout << "Please Login: " << std::endl << "Username: ";
+		std::getline(std::cin,buffer);
+		loginMessage  += buffer + "\n";
+
+		char * tmp = getpass("Password: ");
+		buffer = std::string(tmp);
+		loginMessage += buffer + "\n" + ".\n";
+		buffer.clear();
+
+		if(cli.Connect(hostname, port) == -1) {
+			std::cout << "Could not connect to Server" << std::endl;
+		}
+		if(cli.SendMessage(loginMessage) == -1) {
+			std::cout << "Could not Login to Server" << std::endl;
+		}
+		cli.receiveData();
+
+		int rv;
+		if((rv = cli.checkOK())) {
 			check = true;
 			std::cout << "Login OK" << std::endl;
 			break;
+		} else if(rv == -1) {
+			std::cout << "An error ocurred." << std::endl;
+			loginMessage.clear();
 		}
 		std::cout << "Wrong username or password" << std::endl;
 	}
 	if(!check) {
 		std::cout << "Bannend from Server" << std::endl;
+		return false;
 	}
+
 	while (check)
 	{
 		std::cout << "Willkommen! Welche Operation wuerden Sie gerne ausfuehren? 1.SEND, 2.LIST, 3.READ, 4.DEL  0.Exit \n";
@@ -120,21 +125,26 @@ int main(int argc, char **argv){
 		case 2 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
 			message += "LIST\n";
+			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
+			needData = true;
 			break;
 		case 3 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
 			message += "READ\n";
+			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
+			needData = true;
 			break;
 		case 4 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
 			message += "DEL\n";
+			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
@@ -143,6 +153,7 @@ int main(int argc, char **argv){
 			break;
 		case 0 :
 			check = false;
+			cli.SendMessage("QUIT\n.\n");
 			break;
 		default:
 			std::cout << "Sie müssen eine Zahl zwischen 1 und 4 für die jeweilige Operation eingeben.";
@@ -153,6 +164,10 @@ int main(int argc, char **argv){
 				cli.SendMessage(message);
 			} else {
 				cli.SendMessage(message, fileName);
+			}
+			if(needData) {
+				cli.receiveData();
+				cli.printMessage();
 			}
 			message.clear();
 			fileName.clear();

@@ -43,7 +43,6 @@ void Ldap::bind(const char *user, const char *pw)
 bool Ldap::authenticate(std::string uid, std::string pw, const char* ldapSearchBase)
 {
 	int rv;
-	bool result = false;
 	std::string ldapFilter = "(uid=" + uid + ")";
 
 	LDAP *ldAuth;
@@ -63,14 +62,12 @@ bool Ldap::authenticate(std::string uid, std::string pw, const char* ldapSearchB
 		if(m_dn != nullptr) {
 			ldap_initialize(&ldAuth,m_ldapServer);
 			rv = ldap_bind_s(ldAuth, m_dn, pw.c_str(), LDAP_AUTH_SIMPLE);
-			if(rv != 0) {
-				result = false;
-			} else {
-				result= true;
+			if(rv == 0) {
+				return true;
 			}
 			ldap_unbind(ldAuth);
 		}
 	}
-	return result;
+	return false;
 
 }

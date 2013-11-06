@@ -12,8 +12,8 @@ class Server
 	static const unsigned int bufferSize = 4096;
 	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
 	constexpr static const char * const messageDelim = ".\n";
-	constexpr static const char * const ERR = "ERR\n";
-	constexpr static const char * const OK = "OK\n";
+	constexpr static const char * const ERR = "ERR\n.\n";
+	constexpr static const char * const OK = "OK\n.\n";
 
 	constexpr static const char * const ldapServer = "ldap://ldap.technikum-wien.at:389";
 	constexpr static const char * const ldapSearchBase = "dc=technikum-wien,dc=at";

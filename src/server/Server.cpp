@@ -145,11 +145,12 @@ int Server::Start(bool *run)
 
 void Server::ChildProcess()
 {
-	sendMessage(OK);
 	int i, logInCount = 0;
 	try {
-		receiveData();
 		while(true) {
+			if(m_buffer.empty()) {
+				receiveData();
+			}
 			determineMessageType();
 			for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
 				if(splitMessage()) {
@@ -183,6 +184,7 @@ void Server::ChildProcess()
 				OnRecvLIST();
 				break;
 			case QUIT:
+				std::cout << "Client Quit" << std::endl;
 				return;
 			default:
 				sendMessage(ERR);
@@ -298,11 +300,12 @@ bool Server::OnRecvLOGIN()
 	split(m_message, "\n", lines);
 	try {
 		Ldap ldapConnection(static_cast<const char * const>(ldapServer));
-		ldapConnection.bind("uid=if12b076,ou=people,dc=technikum-wien,dc=at", "");
+		ldapConnection.bind(nullptr,nullptr);
 		if(ldapConnection.authenticate(lines[1], lines[2], ldapSearchBase)) {
 			sendMessage(OK);
 			return true;
 		}
+		sendMessage(ERR);
 		return false;
 	} catch(const ServerException& ex) {
 		std::cout << ex.what() << std::endl;
@@ -410,8 +413,9 @@ void Server::OnRecvLIST()
 		std::vector<std::string> tmp;
 		split(it, ";", tmp);
 		msg += tmp[1] + "\n";
+		std::cout << it << std::endl;
 	}
-	send(m_childfd, msg.c_str(), msg.size(), 0);
+	sendMessage(msg);
 	return;
 }
 
