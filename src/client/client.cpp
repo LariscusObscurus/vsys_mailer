@@ -98,12 +98,20 @@ int Client::SendMessage(std::string message, std::string fileName)
 	std::string attMessage("ATT\n" + numberToString(fileContent.size()) + "\n.\n");
 	if(SendMessage(attMessage) == -1) {return -1;}
 
-	long bytes_sent = send(m_sockfd, reinterpret_cast<char*>(&fileContent[0]), fileContent.size(), 0);
-	if(bytes_sent < 0){
-		printf("Send Error.");
-		return -1;
+	size_t size = fileContent.size();
+	size_t bytesSent = 0;
+	size_t blockSize = 1024;
+	while(bytesSent < size) {
+		long block_sent  = send(m_sockfd, reinterpret_cast<char*>(&fileContent[bytesSent]), blockSize, 0);
+		if(block_sent < 0){
+			printf("Send Error.");
+			return -1;
+		}
+		bytesSent += blockSize;
+		if((size - bytesSent) < (size_t) blockSize) {
+			blockSize = size - bytesSent;
+		}
 	}
-
 	return 0;
 }
 

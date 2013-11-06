@@ -78,6 +78,7 @@ int main(int argc, char **argv){
 	bool check = false, needData = false;
 	if(cli.Connect(hostname, port) == -1) {
 		std::cout << "Could not connect to Server" << std::endl;
+		return EXIT_FAILURE;
 	}
 	for(int i = 0; i <= 2; i++) {
 		std::string loginMessage = "LOGIN \n";
@@ -121,14 +122,26 @@ int main(int argc, char **argv){
 			message += "SEND\n";
 			std::cin.ignore();
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 8) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie den Empfaenger ein:(max. 8 chars)";
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 8) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie den Betreff ein:(max. 80 chars)";
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 80) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n";
-			std::cout << "Bitte geben Sie die Nachricht ein:(max. 920 chars)";
+			std::cout << "Bitte geben Sie die Nachricht ein: ";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			std::cout << "Wollen Sie einen Anhang hinzufügen?: /home/User/...";
@@ -139,6 +152,10 @@ int main(int argc, char **argv){
 			message += "LIST\n";
 			std::cin.ignore();
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 8) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n" + ".\n";
 			needData = true;
 			break;
@@ -147,8 +164,12 @@ int main(int argc, char **argv){
 			message += "READ\n";
 			std::cin.ignore();
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 8) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n";
-			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
+			std::cout << "Bitte geben Sie die Nummer der Nachricht an: ";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			needData = true;
@@ -158,8 +179,12 @@ int main(int argc, char **argv){
 			message += "DEL\n";
 			std::cin.ignore();
 			std::getline(std::cin,buffer);
+			if(buffer.length() > 8) {
+				std::cout << "Eingabe zu lang" << std::endl;
+				continue;
+			}
 			message += buffer + "\n";
-			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
+			std::cout << "Bitte geben Sie die Nummer der Nachricht an: ";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			needData = true;

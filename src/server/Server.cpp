@@ -46,7 +46,7 @@ int Server::Connect (const char *node, const char *port)
 
 	/*realpath must be free'd*/
 	char * tmp = realpath(m_path.c_str(), nullptr);
-	m_path = tmp;
+	m_curUserPath = m_path = tmp;
 	free(tmp);
 
 	if((rv = getaddrinfo(node, port, &hints, &servinfo) != 0)) {
@@ -347,6 +347,21 @@ void Server::OnRecvSEND()
 
 void Server::OnRecvATT()
 {
+	if(!m_loggedIn) {return;}
+	if(m_curUserPath == m_path) { 
+		sendMessage(ERR);
+		return;
+	}
+	std::vector<std::string> lines;
+	split(m_message, "\n", lines);
+	size_t size = stringToNumber<long>(lines[1]);
+
+	char buffer[size];
+	long bytesReceived = 0;
+	if((bytesReceived = recv(m_sockfd, buffer, size, 0)) != -1) {
+		
+	}
+
 	std::ofstream dataStream(m_curUserPath + numberToString<int>(m_messageCount) + "_data",
 		std::ios::out|std::ios::binary|std::ios::trunc);
 
@@ -354,7 +369,7 @@ void Server::OnRecvATT()
 		throw ServerException("writeData: Could not open file");
 	}
 	try {
-		dataStream.write(reinterpret_cast<char*>(&m_data[0]), m_data.size());
+		dataStream.write(reinterpret_cast<char*>(&buffer[0]), size);
 	} catch(const std::fstream::failure& ex) {
 		std::cout << ex.what() << std::endl;
 		throw ServerException("writeData: Could not write file");
