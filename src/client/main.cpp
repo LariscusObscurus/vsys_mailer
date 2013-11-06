@@ -153,7 +153,6 @@ int main(int argc, char **argv){
 		case 1 :
 			std::cout << "Bitte geben Sie den Sender ein:(max. 8 chars)\n";
 			message += "SEND \n";
-			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie den Empfaenger ein:(max. 8 chars)\n";
@@ -171,14 +170,12 @@ int main(int argc, char **argv){
 		case 2 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)\n";
 			message += "LIST \n";
-			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			break;
 		case 3 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)\n";
 			message += "READ \n";
-			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)\n";
@@ -188,7 +185,6 @@ int main(int argc, char **argv){
 		case 4 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)\n";
 			message += "DEL \n";
-			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)\n";

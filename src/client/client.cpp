@@ -87,25 +87,30 @@ int Client::SendMessage(std::string message)
 
 int Client::SendMessage(std::string message, std::string fileName)
 {
-	std::string fileContent;
+	std::vector<unsigned char> fileContent;
 	if(ReadFile(fileName, fileContent) == -1) {
 		printf("ERROR: File %s not found.\n", fileName.c_str());
 		return -1;
 	}
-	message += attachmentDelim + fileContent;
-	std::cout << message << std::endl;
+	message += attachmentDelim;
 	long bytes_sent = send(m_sockfd, message.c_str(), message.length(), 0);
-		if(bytes_sent < 0){
-			printf("Send Error.");
+	if(bytes_sent < 0){
+		printf("Send Error.");
+	return -1;
+	}
+	bytes_sent = send(m_sockfd, reinterpret_cast<char*>(&fileContent[0]), fileContent.size(), 0);
+	if(bytes_sent < 0){
+		printf("Send Error.");
 		return -1;
-		}
+	}
 
 	return 0;
 }
 
-int Client::ReadFile(std::string fileName, std::string& out)
+int Client::ReadFile(std::string fileName, std::vector<unsigned char>& out)
 {
-	std::fstream file;
+	std::streampos size;
+	std::ifstream file;
 	file.open(fileName,std::ios::in|std::ios::binary|std::ios::ate);
 
 	if(!file.is_open())
@@ -113,12 +118,10 @@ int Client::ReadFile(std::string fileName, std::string& out)
 		file.close();
 		return -1;
 	} else {
-		auto size = file.tellg();
-		char *content = new char[size];
-		file.seekg(0,std::ios::beg);
-		file.read(content, size);
-		out = std::string(content);
-		delete[] content;
+		size = file.tellg();
+		file.seekg(0, std::ios::beg);
+		out = std::vector<unsigned char>(size);
+		file.read((char*)&out[0], size);
 	}
 	file.close();
 	return 0;

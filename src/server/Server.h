@@ -1,6 +1,7 @@
 #ifndef	SERVER_H
 #define SERVER_H
 
+#include <arpa/inet.h>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,7 @@ class Server
 	static const unsigned int backLog = 10;
 	static const unsigned int bufferSize = 4096;
 	constexpr static const char * const attachmentDelim = "HEREBEDRAGONS!\n";
+	constexpr static const char * const messageDelim = ".\n";
 	constexpr static const char * const ERR = "ERR\n";
 	constexpr static const char * const OK = "OK\n";
 
@@ -19,13 +21,34 @@ class Server
 	int m_sockfd;
 	int m_childfd;
 	int m_messageCount;
+	bool m_loggedIn;
 
 	std::string m_path;
+	std::string m_curUserPath;
 	std::string m_message;
 	char *m_cbuffer;
+	char m_clientIp[INET6_ADDRSTRLEN];
 	std::vector<char> m_buffer;
 	std::vector<char> m_data;
+	std::vector<std::string> parsedMessages;
 	std::vector<std::string> m_log;
+
+	enum MessageType {
+		NONE,
+		LOGIN,
+		SEND,
+		DEL,
+		READ,
+		LIST,
+		ATT,
+		QUIT
+	}m_currentMessageType;
+
+	struct MsgBuf {
+		long mtype;
+		char blacklisted[INET6_ADDRSTRLEN];
+	};
+	int m_msqId;
 
 public:
 	Server (const char *path);
@@ -35,7 +58,7 @@ public:
 	 * 	Server beginnt am Socket zu horchen und akzeptiert Verbindungen.
 	 * 	Für jede akzeptierte Verbindung wird ein Kindprozess abgespalten.
 	 */
-	int Start ();
+	int Start (bool *run);
 	/**
 	 * Connect:
 	 * 	Erstellt Socket und bindet am angegebenen port
@@ -43,18 +66,20 @@ public:
 	int Connect (const char *node, const char *port);
 private:
 	void ChildProcess();
-	bool receiveLogin();
 	void receiveData();
 	bool socketAvailable(int fd);
 	bool OnRecvLOGIN();
 	void OnRecvSEND();
+	void OnRecvATT();
 	void OnRecvDEL();
 	void OnRecvREAD();
 	void OnRecvLIST();
 	void OnRecvQUIT();
 	void sendMessage(const std::string& message);
 	void createDirectory(const char *dir);
-	void splitAttached(const std::vector<char>& buffer, const std::string& delim);
+	void determineMessageType();
+	bool splitMessage();
+	bool splitAttached();
 	/**
 	 * split:
 	 * 	string anhand der angegebenen Trennzeichen aufteilen
@@ -70,6 +95,6 @@ private:
 	void writeMessage(const std::string& path, const std::vector<std::string>& message);
 	const std::string readMessage(const std::string& path) const;
 	void rewriteLog(std::string& path);
-	void inputThread(bool& cont);
+	void *get_in_addr(struct sockaddr *sa);
 };
 #endif

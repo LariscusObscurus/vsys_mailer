@@ -19,7 +19,7 @@ public:
 	int SendMessage(std::string message, std::string fileName);
 	int Login(const char *user, const char *p);
 private:
-	int ReadFile(std::string fileName, std::string& out);
+	int ReadFile(std::string fileName, std::vector<unsigned char> &out);
 };
 
 #endif

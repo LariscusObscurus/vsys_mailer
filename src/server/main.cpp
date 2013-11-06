@@ -2,17 +2,31 @@
 #include <iostream>
 #include "Server.h"
 #include "ServerException.h"
+#include <cstring>
 #include <signal.h>
 #include <sys/wait.h>
+
+bool run = true;
+int count =  0;
 
 void signalHandler(int s)
 {
 	while(waitpid(-1,NULL, WNOHANG) > 0);
 }
+void StopServer(int s)
+{
+	run = false;
+	if(count++ >= 2) std::exit(0);
+}
 
 int main(int argc, char *argv[])
 {
-	struct sigaction sa;
+	struct sigaction sa, sa_stop;
+	memset(&sa_stop,0,sizeof(sa_stop));
+	sigfillset(&sa.sa_mask);
+	sa_stop.sa_handler = StopServer;
+	sigaction(SIGINT,&sa_stop,NULL);
+
 	if(argc < 3) {
 		std::cout << "No Server Path and/or Portnumber given!" << std::endl;
 		return EXIT_FAILURE;
@@ -33,12 +47,12 @@ int main(int argc, char *argv[])
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
 	if(sigaction(SIGCHLD, &sa, NULL) == -1) {
-		std::cerr << "sigaction" << std::endl;
+		std::cout << "sigaction" << std::endl;
 		exit(1);
 	}
 
 	std::cout << "Listening..." << std::endl;
-	serv.Start();
+	serv.Start(&run);
 	waitpid(-1,0,0);
 	return EXIT_SUCCESS;
 }
