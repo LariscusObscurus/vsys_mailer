@@ -9,6 +9,8 @@
 #include <cerrno>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
+#include "../server/Conversion.h"
 
 
 
@@ -87,18 +89,16 @@ int Client::SendMessage(std::string message)
 
 int Client::SendMessage(std::string message, std::string fileName)
 {
+	if(SendMessage(message) == -1) {return -1;}
 	std::vector<unsigned char> fileContent;
 	if(ReadFile(fileName, fileContent) == -1) {
 		printf("ERROR: File %s not found.\n", fileName.c_str());
 		return -1;
 	}
-	message += attachmentDelim;
-	long bytes_sent = send(m_sockfd, message.c_str(), message.length(), 0);
-	if(bytes_sent < 0){
-		printf("Send Error.");
-	return -1;
-	}
-	bytes_sent = send(m_sockfd, reinterpret_cast<char*>(&fileContent[0]), fileContent.size(), 0);
+	std::string attMessage("ATT\n" + numberToString(fileContent.size()) + "\n.\n");
+	if(SendMessage(attMessage) == -1) {return -1;}
+
+	long bytes_sent = send(m_sockfd, reinterpret_cast<char*>(&fileContent[0]), fileContent.size(), 0);
 	if(bytes_sent < 0){
 		printf("Send Error.");
 		return -1;
@@ -127,7 +127,42 @@ int Client::ReadFile(std::string fileName, std::vector<unsigned char>& out)
 	return 0;
 }
 
-int Client::Login(const char *user, const char *pw)
+bool Client::splitMessage()
 {
+	size_t delimSize = strlen(messageDelim);
+	auto delimPos = std::search(m_buffer.begin(), m_buffer.end(), messageDelim, messageDelim + delimSize);
+		if(delimPos != m_buffer.end()) {
+			m_message = std::string(m_buffer.begin(), delimPos + delimSize);
+			m_buffer.erase(m_buffer.begin(),delimPos + delimSize);
+			return true;
+		}
 
+	return false;
 }
+
+void Client::receiveData()
+{
+	long bytesReceived = 0;
+	errno = 0;
+	char *buffer = new char[bufferLength];
+	memset(buffer, 0, bufferLength);
+
+	if((bytesReceived = recv(m_sockfd, buffer, bufferLength, 0)) != -1) {
+		std::copy(buffer, buffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
+	}
+	delete[] buffer;
+}
+
+int Client::checkOK() {
+	splitMessage();
+	if(!m_message.compare("OK\n")) {
+		m_message.clear();
+		return 1;
+	} else if(!m_message.compare("ERR\n")) {
+		m_message.clear();
+		return 0;
+	} else {
+		return -1;
+	}
+}
+

@@ -145,26 +145,17 @@ int Server::Start(bool *run)
 
 void Server::ChildProcess()
 {
+	sendMessage(OK);
 	int i, logInCount = 0;
 	try {
 		receiveData();
 		while(true) {
 			determineMessageType();
-			if(m_currentMessageType != ATT) {
-				for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
-					if(splitMessage()) {
-						break;
-					}
-					receiveData();
+			for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
+				if(splitMessage()) {
+					break;
 				}
-			} else {
-				for(i = 0; i <= 5000; i++) {
-					if(splitAttached()) {
-						break;
-					}
-					receiveData();
-				}
-
+				receiveData();
 			}
 			if(i == 5000) { throw ServerException("Message size exceeded"); }
 
@@ -298,19 +289,6 @@ bool Server::splitMessage()
 			return true;
 		}
 
-	return false;
-}
-
-bool Server::splitAttached()
-{
-
-	size_t delimSize = strlen(attachmentDelim);
-	auto delimPos = std::search(m_buffer.begin(), m_buffer.end(), attachmentDelim, attachmentDelim + delimSize);
-	if(delimPos != m_buffer.end()) {
-		std::move(m_buffer.begin() + strlen("ATT"), m_buffer.end() - delimSize, std::back_inserter(m_data));
-		m_buffer.erase(m_buffer.begin(),delimPos + delimSize);
-		return true;
-	}
 	return false;
 }
 

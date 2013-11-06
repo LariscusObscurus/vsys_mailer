@@ -8,8 +8,9 @@ class Client
 {
 	int m_sockfd;
 	static const int bufferLength = 4096;
-	constexpr static const char * attachmentDelim = "HEREBEDRAGONS!\n";
-
+	constexpr static const char * messageDelim = ".\n";
+	std::vector<char> m_buffer;
+	std::string m_message;
 public:
 	Client();
 	virtual ~Client();
@@ -17,6 +18,9 @@ public:
 	int SendMessage(std::string message);
 	int SendMessage(std::string message, std::string fileName);
 	int Login(const char *user, const char *p);
+	bool splitMessage();
+	void receiveData();
+	int checkOK();
 private:
 	int ReadFile(std::string fileName, std::vector<unsigned char> &out);
 };

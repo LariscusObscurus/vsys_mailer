@@ -18,7 +18,7 @@
 #include <string.h>
 #include <iostream>
 #include <vector>
-
+#include <unistd.h>
 
 int main(int argc, char **argv){
 
@@ -66,14 +66,35 @@ int main(int argc, char **argv){
 
 	int userOption;
 	bool check;
-	check = true;
+	check = false;
 	std::cout << "Please Login: " << std::endl << "Username: ";
 	std::getline(std::cin,buffer);
 	loginMessage  += buffer + "\n";
-	std::cout << "Password: ";
-	std::getline(std::cin,buffer);
+	//std::cout << "Password: ";
+	char * tmp = getpass("Password: ");
+	buffer = std::string(tmp);
+	free(tmp);
+	//std::getline(std::cin,buffer);
 	loginMessage  += buffer + "\n" + ".\n";
 	buffer.clear();
+	if(cli.Connect(hostname, port) == -1) {
+		std::cout << "Could not connect to Server" << std::endl;
+	}
+	if(cli.SendMessage(loginMessage) == -1) {
+		std::cout << "Could not Login to Server" << std::endl;
+	}
+	cli.receiveData();
+	for(int i = 0; i <= 2; i++) {
+		if(cli.checkOK()) {
+			check = true;
+			std::cout << "Login OK" << std::endl;
+			break;
+		}
+		std::cout << "Wrong username or password" << std::endl;
+	}
+	if(!check) {
+		std::cout << "Bannend from Server" << std::endl;
+	}
 	while (check)
 	{
 		std::cout << "Willkommen! Welche Operation wuerden Sie gerne ausfuehren? 1.SEND, 2.LIST, 3.READ, 4.DEL  0.Exit \n";
@@ -81,7 +102,7 @@ int main(int argc, char **argv){
 		switch(userOption) {
 		case 1 :
 			std::cout << "Bitte geben Sie den Sender ein:(max. 8 chars)";
-			message += "SEND \n";
+			message += "SEND\n";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie den Empfaenger ein:(max. 8 chars)";
@@ -98,13 +119,13 @@ int main(int argc, char **argv){
 			break;
 		case 2 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
-			message += "LIST \n";
+			message += "LIST\n";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
 			break;
 		case 3 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
-			message += "READ \n";
+			message += "READ\n";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
@@ -113,7 +134,7 @@ int main(int argc, char **argv){
 			break;
 		case 4 :
 			std::cout << "Bitte geben Sie den gewünschten Username ein:(max. 8 chars)";
-			message += "DEL \n";
+			message += "DEL\n";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
@@ -128,10 +149,6 @@ int main(int argc, char **argv){
 			break;
 		}
 		if(check ==true){
-			cli.Connect(hostname, port);
-			//std::cout << loginMessage << std::endl;
-			cli.SendMessage(loginMessage);
-			/*receive abfragen OK oder ERR*/
 			if(fileName.length() == 0) {
 				cli.SendMessage(message);
 			} else {
