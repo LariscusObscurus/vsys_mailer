@@ -121,11 +121,16 @@ int Server::Start(bool *run)
 
 		std::string ip = inet_ntop(clientAddr.ss_family, get_in_addr((struct sockaddr*)&clientAddr),m_clientIp, sizeof(m_clientIp));
 
-		blackList.erase(std::remove_if(blackList.begin(), blackList.end(), [](const BlackListEntry& entry) { return (entry.time + 10 < time(nullptr));}), blackList.end());
+		blackList.erase(std::remove_if(blackList.begin(), blackList.end(), 
+			[](const BlackListEntry& entry) { 
+				return (entry.time + 30 < time(nullptr));
+			}
+		), blackList.end());
 
 		for(auto& it: blackList) {
 			if(!ip.compare(it.blacklisted)) {
 				clientAllowed = false;
+				sendMessage(ERR);
 				break;
 			}
 		}
@@ -300,7 +305,7 @@ bool Server::OnRecvLOGIN()
 	split(m_message, "\n", lines);
 	try {
 		Ldap ldapConnection(static_cast<const char * const>(ldapServer));
-		ldapConnection.bind(nullptr,nullptr);
+		ldapConnection.bind("uid=if12b076,ou=people,dc=technikum-wien,dc=at","");
 		if(ldapConnection.authenticate(lines[1], lines[2], ldapSearchBase)) {
 			sendMessage(OK);
 			return true;
@@ -366,12 +371,13 @@ void Server::OnRecvDEL()
 	std::string logDir(m_path + "/" + lines[1] + "/log");
 
 	readLogFile(logDir);
-	for(int i = 0; i <= (int)m_log.size(); i++) {
+	for(int i = 0; i < (int)m_log.size(); i++) {
 		std::string::size_type pos = m_log[i].find_first_of(";",0);
 		if(m_log[i].substr(0,pos) == lines[2]){
 			m_log.erase(m_log.begin() + i);
 			rewriteLog(logDir);
 			unlink(dir.c_str());
+			sendMessage(OK);
 			return;
 		}
 	}
@@ -408,13 +414,14 @@ void Server::OnRecvLIST()
 
 	std::string dir(m_path + "/" + lines[1] + "/log");
 	readLogFile(dir);
-	msg += numberToString<int>(m_messageCount) + "\n";
+	msg +="Messages: " + numberToString<int>(m_messageCount) + "\n";
+	std::cout << msg << std::endl;
 	for(auto it: m_log) {
 		std::vector<std::string> tmp;
-		split(it, ";", tmp);
+		split(it, ";\n", tmp);
 		msg += tmp[1] + "\n";
-		std::cout << it << std::endl;
 	}
+	msg += ".\n";
 	sendMessage(msg);
 	return;
 }
@@ -454,6 +461,7 @@ void Server::readLogFile(const std::string& path)
 	std::string logString;
 	std::fstream logFileStream;
 	logFileStream.open(path,std::ios::in);
+	m_log.clear();
 
 	if(!logFileStream.is_open()) {
 		logFileStream.clear();
@@ -474,14 +482,6 @@ void Server::readLogFile(const std::string& path)
 	} else {
 		m_messageCount = 0;
 	}
-
-#ifdef _DEBUG
-	std::cout << "Log:" << std::endl;
-	for(auto& it: m_log) {
-		std::cout << it << std::endl;
-	}
-	std::cout << m_messageCount << std::endl;
-#endif
 }
 
 void Server::writeLogFile(const std::string& path, const std::string& subject)

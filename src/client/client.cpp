@@ -80,7 +80,7 @@ int Client::SendMessage(std::string message)
 	long bytes_sent = send(m_sockfd, message.c_str(), message.length(), 0);
 		if(bytes_sent < 0){
 			printf("Send Error.");
-		return -1;
+			return -1;
 		}
 
 	return 0;
@@ -170,7 +170,6 @@ void Client::printMessage()
 {
 	splitMessage();
 	std::cout << "--------ANSWER--------" << std::endl;
-
 	std::cout << m_message << std::endl;
 	std::cout << "--------ANSWER--------" << std::endl;
 

@@ -20,7 +20,18 @@
 #include <vector>
 #include <unistd.h>
 
+void signalHandler(int s)
+{
+	std::cout << "Socket not connected. Are you banned?" << std::endl;
+	std::exit(0);
+}
+
 int main(int argc, char **argv){
+	struct sigaction sa;
+	memset(&sa,0,sizeof(sa));
+	sigfillset(&sa.sa_mask);
+	sa.sa_handler = signalHandler;
+	sigaction(SIGPIPE,&sa,nullptr);
 
 	if(argc < 3) {
 		std::cout << "Server and/or Portnumber given!\nusage:" << argv[0] << " hostname port" << std::endl;
@@ -65,6 +76,9 @@ int main(int argc, char **argv){
 
 	int userOption;
 	bool check = false, needData = false;
+	if(cli.Connect(hostname, port) == -1) {
+		std::cout << "Could not connect to Server" << std::endl;
+	}
 	for(int i = 0; i <= 2; i++) {
 		std::string loginMessage = "LOGIN \n";
 		std::cout << "Please Login: " << std::endl << "Username: ";
@@ -76,9 +90,6 @@ int main(int argc, char **argv){
 		loginMessage += buffer + "\n" + ".\n";
 		buffer.clear();
 
-		if(cli.Connect(hostname, port) == -1) {
-			std::cout << "Could not connect to Server" << std::endl;
-		}
 		if(cli.SendMessage(loginMessage) == -1) {
 			std::cout << "Could not Login to Server" << std::endl;
 		}
@@ -108,6 +119,7 @@ int main(int argc, char **argv){
 		case 1 :
 			std::cout << "Bitte geben Sie den Sender ein:(max. 8 chars)";
 			message += "SEND\n";
+			std::cin.ignore();
 			std::getline(std::cin,buffer);
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie den Empfaenger ein:(max. 8 chars)";
@@ -150,6 +162,7 @@ int main(int argc, char **argv){
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an:(max. 8 chars)";
 			std::getline(std::cin,buffer);
 			message += buffer + "\n" + ".\n";
+			needData = true;
 			break;
 		case 0 :
 			check = false;
@@ -168,6 +181,7 @@ int main(int argc, char **argv){
 			if(needData) {
 				cli.receiveData();
 				cli.printMessage();
+				needData = false;
 			}
 			message.clear();
 			fileName.clear();
