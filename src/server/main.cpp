@@ -6,13 +6,24 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+/**
+ * run = false fährt den Server ordnungsgemäß herunter
+ * count zählt SIGINT
+ * count >= 2 Notabschaltung
+ */
 bool run = true;
 int count =  0;
 
+/**
+ * SIGCHLD
+ */
 void signalHandler(int s)
 {
 	while(waitpid(-1,NULL, WNOHANG) > 0);
 }
+/**
+ * SIGINT
+ */
 void StopServer(int s)
 {
 	run = false;
@@ -23,6 +34,10 @@ int main(int argc, char *argv[])
 {
 	struct sigaction sa, sa_stop;
 	memset(&sa_stop,0,sizeof(sa_stop));
+
+	/**
+	 * signalHandlere für SIGINT
+	 */
 	sigfillset(&sa.sa_mask);
 	sa_stop.sa_handler = StopServer;
 	sigaction(SIGINT,&sa_stop,NULL);
@@ -42,7 +57,9 @@ int main(int argc, char *argv[])
 		std::cerr << ex.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-
+	/**
+	 * signalHandler für SIGCHLD 
+	 */
 	sa.sa_handler = signalHandler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;

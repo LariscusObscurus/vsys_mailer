@@ -92,7 +92,7 @@ int Client::SendMessage(std::string message, std::string fileName)
 	if(SendMessage(message) == -1) {return -1;}
 	std::vector<unsigned char> fileContent;
 	if(ReadFile(fileName, fileContent) == -1) {
-		printf("ERROR: File %s not found.\n", fileName.c_str());
+		std::cout << "ERROR: File " << fileName << " not found." << std::endl;
 		return -1;
 	}
 	std::string attMessage("ATT\n" + numberToString(fileContent.size()) + "\n.\n");
@@ -177,7 +177,6 @@ void Client::receiveData(int amount)
 int Client::checkOK() {
 	m_buffer.clear();
 	receiveData(5);
-	std::cout << &m_buffer[0];
 	if(!strncmp(&m_buffer[0],"OK\n", 2)) {
 		m_buffer.clear();
 		return 1;
@@ -197,5 +196,6 @@ void Client::printMessage()
 	std::cout << "--------ANSWER--------" << std::endl;
 	std::cout << m_message << std::endl;
 	std::cout << "--------ANSWER--------" << std::endl;
+	m_buffer.clear();
 
 }

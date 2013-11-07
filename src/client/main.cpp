@@ -19,10 +19,11 @@
 #include <iostream>
 #include <vector>
 #include <unistd.h>
+#include <algorithm>
 
 void signalHandler(int s)
 {
-	std::cout << "Socket not connected. Are you banned?" << std::endl;
+	std::cout << "Server hat die Verbindung geschlossen." << std::endl;
 	std::exit(0);
 }
 
@@ -64,10 +65,7 @@ int main(int argc, char **argv){
 		std::cout << std::endl;
 	}
 
-	/*
-	LOGIN
-	cli.Recieve();
-	*/
+	/* LOGIN */
 
 	std::string buffer;
 	std::string message;
@@ -111,7 +109,7 @@ int main(int argc, char **argv){
 		std::cout << "Bannend from Server" << std::endl;
 		return false;
 	}
-
+	/* Mainloop */
 	while (check)
 	{
 		std::cout << "Willkommen! Welche Operation wuerden Sie gerne ausfuehren? 1.SEND, 2.LIST, 3.READ, 4.DEL  0.Exit \n";
@@ -124,6 +122,7 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 8) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
 			message += buffer + "\n";
@@ -131,6 +130,7 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 8) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
 			message += buffer + "\n";
@@ -138,12 +138,13 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 80) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nachricht ein: ";
 			std::getline(std::cin,buffer);
-			message += buffer + "\n" + ".\n";
+			message += buffer + "\n";
 			std::cout << "Wollen Sie einen Anhang hinzufügen?: /home/User/...";
 			std::getline(std::cin,fileName);
 			break;
@@ -154,9 +155,10 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 8) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
-			message += buffer + "\n" + ".\n";
+			message += buffer + "\n";
 			needData = true;
 			break;
 		case 3 :
@@ -166,12 +168,13 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 8) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an: ";
 			std::getline(std::cin,buffer);
-			message += buffer + "\n" + ".\n";
+			message += buffer + "\n";
 			needData = true;
 			break;
 		case 4 :
@@ -181,12 +184,13 @@ int main(int argc, char **argv){
 			std::getline(std::cin,buffer);
 			if(buffer.length() > 8) {
 				std::cout << "Eingabe zu lang" << std::endl;
+				message.clear();
 				continue;
 			}
 			message += buffer + "\n";
 			std::cout << "Bitte geben Sie die Nummer der Nachricht an: ";
 			std::getline(std::cin,buffer);
-			message += buffer + "\n" + ".\n";
+			message += buffer + "\n";
 			needData = true;
 			break;
 		case 0 :
@@ -198,6 +202,12 @@ int main(int argc, char **argv){
 			break;
 		}
 		if(check ==true){
+			message.erase(std::remove(message.begin(), message.end(), '.'), message.end());
+			if(message.length() == 0) {
+				message.clear();
+				continue;
+			}
+			message += ".\n";
 			if(fileName.length() == 0) {
 				cli.SendMessage(message);
 			} else {
@@ -219,8 +229,5 @@ int main(int argc, char **argv){
 			fileName.clear();
 		}
 	}
-
-	//cli.Recieve();
-
 		return EXIT_SUCCESS;
 }

@@ -282,8 +282,8 @@ void Server::determineMessageType()
 		m_currentMessageType = ATT;
 	} else {
 		sendMessage(ERR);
-		std::cout << header << std::endl;
 		m_buffer.clear();
+		m_currentMessageType = NONE;
 		throw ServerException("Received invalid Message");
 	}
 }
@@ -297,7 +297,6 @@ bool Server::splitMessage()
 			m_buffer.erase(m_buffer.begin(),delimPos + delimSize);
 			return true;
 		}
-
 	return false;
 }
 
@@ -354,13 +353,31 @@ void Server::OnRecvATT()
 	}
 	std::vector<std::string> lines;
 	split(m_message, "\n", lines);
-	size_t size = stringToNumber<long>(lines[1]);
+	size_t size = stringToNumber<size_t>(lines[1]);
+	if(size >= 20000000) { 
+		throw ServerException("File is to big"); 
+	}
 
 	char buffer[size];
+	size_t blockSize = 1024;
 	long bytesReceived = 0;
-	if((bytesReceived = recv(m_sockfd, buffer, size, 0)) != -1) {
-		
+	size_t allbytesReceived = 0;
+
+	while(m_buffer.size() < size) {
+		if((bytesReceived = recv(m_childfd, buffer,blockSize , 0)) != -1) {
+			std::copy(buffer, buffer + bytesReceived, std::back_inserter<std::vector<char>>(m_buffer));
+			allbytesReceived += bytesReceived;
+		} else {
+			throw ServerException("recv error");
+		}
+		allbytesReceived += blockSize;
+		if((size - allbytesReceived) < (size_t) blockSize) {
+			blockSize = size - allbytesReceived;
+		}
 	}
+	std::cout << size << std::endl;
+	std::cout << m_buffer.size() << std::endl;
+
 
 	std::ofstream dataStream(m_curUserPath + numberToString<int>(m_messageCount) + "_data",
 		std::ios::out|std::ios::binary|std::ios::trunc);
@@ -369,11 +386,12 @@ void Server::OnRecvATT()
 		throw ServerException("writeData: Could not open file");
 	}
 	try {
-		dataStream.write(reinterpret_cast<char*>(&buffer[0]), size);
+		dataStream.write(reinterpret_cast<char*>(&m_buffer[0]), m_buffer.size());
 	} catch(const std::fstream::failure& ex) {
 		std::cout << ex.what() << std::endl;
 		throw ServerException("writeData: Could not write file");
 	}
+	m_buffer.clear();
 	return;
 }
 
