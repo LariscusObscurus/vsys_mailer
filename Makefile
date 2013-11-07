@@ -4,21 +4,35 @@ PATCHLEVEL = 0
 SUBLEVEL = 1
 
 CC = g++
-NAME = Server
-DEBUG = -g3 -D_DEBUG
-CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -O3 -std=c++11 
+SERV = Server
+CLIENT = Client
 
-SRC = src/main.cpp src/Server.h src/Server.cpp
-OBJ = $(SRC:.cpp=.o)
+CFLAGS = -c -Wall -Wconversion -Wextra -Wno-missing-field-initializers -std=c++11 -DLDAP_DEPRECATED
+LFLAGS= -lldap -llber
 
-all: $(SRC) $(NAME)
+SERVSRC = src/server/main.cpp src/server/ServerException.cpp src/server/Server.cpp src/server/Ldap.cpp
+CLIENTSRC = src/client/client.cpp src/client/main.cpp
 
-$(NAME): $(OBJ)
-	$(CC) $(OBJ) -o $@ $(LFLAGS)
+OBJSERV = $(SERVSRC:.cpp=.o)
+OBJCLIENT = $(CLIENTSRC:.cpp=.o)
+
+ifdef NDEBUG
+CFLAGS+=-O3
+else
+CFLAGS+=-g -D_DEBUG
+endif
+
+all: $(SERV) $(CLIENT)
+
+$(CLIENT): $(OBJCLIENT)
+	$(CC) $(OBJCLIENT) -o $@
+
+$(SERV): $(OBJSERV)
+	$(CC) $(OBJSERV) -o $@ $(LFLAGS)
 
 clean:
-	rm $(OBJ) $(NAME)
+	rm $(OBJSERV) $(SERV)
+	rm $(OBJCLIENT) $(CLIENT)
 
-%.o: %.cpp
-	$(CC) -c $< -o $@ $(CFLAGS) $(DEBUG)
-
+%.o: %.cpp 
+	$(CC) -c $< -o $@ $(CFLAGS)
