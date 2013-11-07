@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	memset(&sa_stop,0,sizeof(sa_stop));
 
 	/**
-	 * signalHandlere für SIGINT
+	 * signalHandler für SIGINT
 	 */
 	sigfillset(&sa.sa_mask);
 	sa_stop.sa_handler = StopServer;

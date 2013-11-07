@@ -24,9 +24,13 @@ public:
 	void receiveData(int amount);
 	/**
 	 * checkOK:
-	 * 	Überprüft ob der Server OK oder ERR genantwortet hat.
+	 * 	Überprüft ob der Server mit OK oder ERR geantwortet hat.
 	 */
 	int checkOK();
+	/**
+	 * printMessage:
+	 * 	Ausgabe der Antwort des Servers
+	 */
 	void printMessage();
 private:
 	int ReadFile(std::string fileName, std::vector<unsigned char> &out);

@@ -122,12 +122,14 @@ int Server::Start(bool *run)
 
 		std::string ip = inet_ntop(clientAddr.ss_family, get_in_addr((struct sockaddr*)&clientAddr),m_clientIp, sizeof(m_clientIp));
 
+		/*Alle blacklist Einträge löschen die lange genug gebannt waren*/
 		blackList.erase(std::remove_if(blackList.begin(), blackList.end(), 
 			[](const BlackListEntry& entry) { 
 				return (entry.time + timeBanned < time(nullptr));
 			}
 		), blackList.end());
 
+		/* Anschließende überprüfung ob der aktuelle Client gebannt ist*/
 		for(auto& it: blackList) {
 			if(!ip.compare(it.blacklisted)) {
 				clientAllowed = false;
@@ -135,6 +137,7 @@ int Server::Start(bool *run)
 				break;
 			}
 		}
+		
 		if(clientAllowed){
 			if(!fork()) {
 				close(m_sockfd);
@@ -155,7 +158,7 @@ void Server::ChildProcess()
 	try {
 		while(true) {
 			if(m_buffer.empty()) {
-				receiveData();
+				receiveData();	//receiveData blockt
 			}
 			determineMessageType();
 			for(i = 0; i <= 5000; i++) {	// 5000 * bufferSize Limit ~20MB
